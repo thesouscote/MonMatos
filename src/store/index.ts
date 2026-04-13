@@ -1,4 +1,4 @@
-import { reactive, readonly } from 'vue'
+import { reactive } from 'vue'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { UserData, Item } from '../types'
@@ -81,5 +81,5 @@ export function useStore() {
     })
   }
 
-  return { state: readonly(state) as typeof state, loadFromFirebase, save }
+  return { state, loadFromFirebase, save }
 }
