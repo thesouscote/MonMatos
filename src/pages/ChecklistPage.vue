@@ -148,8 +148,7 @@ function resetAll() {
       <!-- DONE BANNER -->
       <div v-if="allDone" class="done-banner animate-in">
         <div class="title">🎉 Tout est prêt !</div>
-        <div class="sub">Tout le stock disponible est vérifié. Bon tournage !</div>
-        <button class="btn btn-primary" @click="openSave">Sauvegarder ce départ</button>
+        <div class="sub">Tout le stock disponible est vérifié. Appuie sur Sauvegarder !</div>
       </div>
 
       <!-- ITEMS BY CAT -->
