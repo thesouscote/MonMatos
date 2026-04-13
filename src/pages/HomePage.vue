@@ -64,8 +64,8 @@ function formatDate(iso: string) {
     day: 'numeric', month: 'short'
   })
 }
-function pct(s: { checked: number; total: number }) {
-  return s.total ? Math.round((s.checked / s.total) * 100) : 0
+function pct(checked: number, total: number) {
+  return total ? Math.round((checked / total) * 100) : 0
 }
 </script>
 
@@ -145,13 +145,13 @@ function pct(s: { checked: number; total: number }) {
           <div v-for="s in recentSessions" :key="s.id" class="session-mini-card" @click="emit('navigate', 'historique')">
             <div class="smc-header">
               <span class="smc-name">{{ s.name }}</span>
-              <span class="smc-date">{{ formatDate(s.timestamp) }}</span>
+              <span class="smc-date">{{ formatDate(s.date) }}</span>
             </div>
             <div class="smc-footer">
               <div class="progress-bar-small">
-                <div class="progress-fill" :style="{ width: pct(s.stats) + '%' }"></div>
+                <div class="progress-fill" :style="{ width: pct(s.checked, s.total) + '%' }"></div>
               </div>
-              <span class="smc-pct">{{ pct(s.stats) }}%</span>
+              <span class="smc-pct">{{ pct(s.checked, s.total) }}%</span>
             </div>
           </div>
         </div>

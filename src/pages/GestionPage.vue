@@ -34,7 +34,7 @@ const getStatusIcon = (iconName: string) => {
 
 // ─── TABS ───
 type GestionTab = 'items' | 'categories' | 'templates'
-const tab = ref<GestionTab>('items')
+const tab = ref('items' as GestionTab)
 
 // ─── FILTER ───
 const activeCat = ref<string>('Tous')
@@ -75,6 +75,7 @@ const form = ref({
 const imageFile = ref<File | null>(null)
 const imagePreview = ref<string | null>(null)
 const isUploading = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
 
 /**
  * Compresse une image via Canvas pour limiter le poids
@@ -510,7 +511,8 @@ async function deleteTemplate(id: number) {
           <!-- PHOTO UPLOAD -->
           <div class="form-group">
             <label>Photo</label>
-            <div class="photo-upload-zone" :class="{ 'has-image': imagePreview }" @click="$refs.fileInput.click()">
+            <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="onFileChange" />
+            <div class="photo-upload-zone" :class="{ 'has-image': imagePreview }" @click="fileInput?.click()">
               <div v-if="imagePreview" class="photo-preview-wrap">
                 <img :src="imagePreview" class="photo-preview" />
                 <button class="btn-remove-photo" @click.stop="removePreview"><X :size="14" /></button>

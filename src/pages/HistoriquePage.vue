@@ -28,7 +28,7 @@ const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
 const { save } = useStore()
 
-const openSessions = ref<Set<number>>(new Set())
+const openSessions = ref(new Set<number>())
 const search = ref('')
 const confirmDeleteId = ref<number | null>(null)
 const filterTab = ref<'all' | 'active' | 'done'>('all')
