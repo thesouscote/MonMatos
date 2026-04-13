@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useStore } from '../store'
 import type { UserData, Item, BorrowedItem } from '../types'
 
@@ -13,7 +13,24 @@ const pendingDepartures = computed(() =>
 )
 
 const activeParentId = ref<number | null>(null)
-const showLinkModal = ref(true) // always show first if there are pending deps
+
+// Auto-select si 1 seul départ en cours, skip modal si 0
+const showLinkModal = ref(false)
+
+onMounted(() => {
+  const pending = pendingDepartures.value
+  if (pending.length === 1) {
+    // 1 seul: sélection automatique
+    activeParentId.value = pending[0].id
+    initItems()
+  } else if (pending.length === 0) {
+    // Aucun: retour libre
+    initItems()
+  } else {
+    // Plusieurs: afficher le modal
+    showLinkModal.value = true
+  }
+})
 
 const parentSession = computed(() =>
   activeParentId.value
@@ -238,8 +255,7 @@ async function confirmSave() {
         <!-- DONE -->
         <div v-if="allDone" class="done-banner animate-in">
           <div class="title">✅ Tout est rentré !</div>
-          <div class="sub">Tout le matériel est vérifié. Beau travail !</div>
-          <button class="btn btn-primary" @click="openSave">Sauvegarder ce retour</button>
+          <div class="sub">Tout le matériel est vérifié. Appuie sur Sauvegarder !</div>
         </div>
 
         <!-- ITEMS -->
