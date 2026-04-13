@@ -82,15 +82,22 @@ const fileInput = ref<HTMLInputElement | null>(null)
  */
 async function compressImage(file: File): Promise<Blob> {
   return new Promise((resolve, reject) => {
+    // Timeout de sécurité (10s)
+    const timeout = setTimeout(() => reject(new Error('Compression timeout')), 10000)
+
     const reader = new FileReader()
     reader.readAsDataURL(file)
     reader.onload = (e) => {
       const img = new Image()
       img.src = e.target?.result as string
+      img.onerror = () => {
+        clearTimeout(timeout)
+        reject(new Error('Erreur de chargement de l\'image pour compression'))
+      }
       img.onload = () => {
         const canvas = document.createElement('canvas')
-        const MAX_WIDTH = 800
-        const MAX_HEIGHT = 800
+        const MAX_WIDTH = 1000
+        const MAX_HEIGHT = 1000
         let width = img.width
         let height = img.height
 
@@ -105,12 +112,16 @@ async function compressImage(file: File): Promise<Blob> {
         const ctx = canvas.getContext('2d')
         ctx?.drawImage(img, 0, 0, width, height)
         canvas.toBlob((blob) => {
+          clearTimeout(timeout)
           if (blob) resolve(blob)
           else reject(new Error('Canvas compression failed'))
-        }, 'image/jpeg', 0.7) // 70% quality
+        }, 'image/jpeg', 0.8) // 80% quality
       }
     }
-    reader.onerror = reject
+    reader.onerror = (e) => {
+      clearTimeout(timeout)
+      reject(e)
+    }
   })
 }
 
@@ -118,7 +129,14 @@ function onFileChange(e: Event) {
   const input = e.target as HTMLInputElement
   if (input.files && input.files[0]) {
     const file = input.files[0]
-    if (file.size > 5 * 1024 * 1024) { emit('toast', 'Image trop lourde (max 5Mo)'); return }
+    console.log("Fichier sélectionné:", file.name, file.size, file.type)
+    
+    if (file.size > 8 * 1024 * 1024) { 
+      emit('toast', 'Image trop lourde (max 8Mo)')
+      input.value = '' // Reset
+      return 
+    }
+    
     imageFile.value = file
     imagePreview.value = URL.createObjectURL(file)
   }
@@ -128,6 +146,7 @@ function removePreview() {
   imageFile.value = null
   imagePreview.value = null
   form.value.imageUrl = ''
+  if (fileInput.value) fileInput.value.value = '' // Reset input physique
 }
 
 function openAddModal() {
@@ -169,13 +188,21 @@ async function saveItem() {
 
     // Handle Image Upload
     if (imageFile.value && props.state._uid) {
-      const blob = await compressImage(imageFile.value)
-      const path = `users/${props.state._uid}/items/${itemId}.jpg`
-      const fileRef = storageRef(storage, path)
-      await uploadBytes(fileRef, blob)
-      finalUrl = await getDownloadURL(fileRef)
-      // Force refresh (cache busting)
-      finalUrl += `?t=${Date.now()}`
+      console.log("Départ upload photo pour item:", itemId)
+      try {
+        const blob = await compressImage(imageFile.value)
+        const path = `users/${props.state._uid}/items/${itemId}.jpg`
+        const fileRef = storageRef(storage, path)
+        await uploadBytes(fileRef, blob)
+        finalUrl = await getDownloadURL(fileRef)
+        // Force refresh (cache busting)
+        finalUrl += `?t=${Date.now()}`
+        console.log("Photo uploadée avec succès:", finalUrl)
+      } catch (uploadErr: any) {
+        console.error("Erreur spécifique upload/compression:", uploadErr)
+        emit('toast', "Erreur photo: " + (uploadErr.message || "vérifiez votre connexion"))
+        // On continue quand même la sauvegarde de l'item sans la nouvelle photo
+      }
     } else if (imagePreview.value === null && form.value.imageUrl) {
       // User removed the image
       if (props.state._uid) {
@@ -206,8 +233,8 @@ async function saveItem() {
     await save()
     showItemModal.value = false
   } catch (e: any) {
-    console.error(e)
-    emit('toast', "Erreur lors de la sauvegarde")
+    console.error("Erreur générale saveItem:", e)
+    emit('toast', "Erreur lors de la sauvegarde : " + (e.message || "inconnue"))
   } finally {
     isUploading.value = false
   }
