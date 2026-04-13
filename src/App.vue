@@ -62,7 +62,7 @@ const navItems = [
   { key: 'checklist',  icon: Clapperboard,  label: 'Départ' },
   { key: 'retour',     icon: Package,       label: 'Retour' },
   { key: 'historique', icon: ClipboardList, label: 'Historique' },
-  { key: 'gestion',    icon: Settings2,     label: 'Gestion' },
+  { key: 'gestion',    icon: Settings2,     label: 'Matériel' },
 ] as const
 </script>
 
@@ -168,10 +168,9 @@ const navItems = [
       </div>
     </Teleport>
 
-    <!-- BOTTOM NAV (MOBILE ONLY) -->
     <nav class="nav-bar">
       <button
-        v-for="item in navItems.filter(i => i.key !== 'gestion')"
+        v-for="item in navItems"
         :key="item.key"
         class="nav-item"
         :class="{ active: currentPage === item.key }"

@@ -32,7 +32,7 @@ const stockAvailable = computed(() =>
   hasAvailableStock(props.state.items || [], props.state.sessions || [])
 )
 
-const recentSessions = computed(() => (props.state.sessions || []).slice(0, 3))
+const recentSessions = computed(() => (props.state.sessions || []).slice(0, 1))
 
 const unavailableItems = computed(() =>
   (props.state.items || []).filter(i => i.status === 'repair' || i.status === 'lost')
