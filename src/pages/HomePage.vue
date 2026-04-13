@@ -126,15 +126,9 @@ function pct(s: { checked: number; total: number }) {
 
         <!-- Retour secondary -->
         <button class="retour-btn" @click="emit('navigate', 'retour')">
-          <span>📦 Enregistrer un retour</span>
+          <span>📦 {{ pendingDepartures.length > 0 ? `${pendingDepartures.length} tournage${pendingDepartures.length > 1 ? 's' : ''} en attente de retour` : 'Enregistrer un retour' }}</span>
           <span v-if="pendingDepartures.length" class="retour-badge">{{ pendingDepartures.length }}</span>
         </button>
-      </div>
-
-      <!-- PENDING DEPARTURES BANNER -->
-      <div v-if="pendingDepartures.length" class="pending-banner">
-        <span>⚠️</span>
-        <span>{{ pendingDepartures.length }} tournage{{ pendingDepartures.length > 1 ? 's' : '' }} en cours sans retour enregistré</span>
       </div>
 
       <!-- RECENT SESSIONS -->
