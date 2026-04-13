@@ -22,17 +22,42 @@ import {
   Trash2,
   Copy,
   FileDown,
-  Mail
+  Mail,
+  Send
 } from 'lucide-vue-next'
+
+import { useTransfers } from '../composables/useTransfers'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
 const { save } = useStore()
+const { sendSessionToAccount } = useTransfers()
 
 const openSessions = ref(new Set<number>())
 const search = ref('')
 const confirmDeleteId = ref<number | null>(null)
 const filterTab = ref<'all' | 'active' | 'done'>('all')
+
+const transferMatosSessionId = ref<number | null>(null)
+const transferEmailInput = ref('')
+
+function openTransferModal(sessionId: number) {
+  transferMatosSessionId.value = sessionId
+  transferEmailInput.value = ''
+}
+
+async function confirmTransfer() {
+  const sess = props.state.sessions.find(s => s.id === transferMatosSessionId.value)
+  if (!sess) return
+  if (!transferEmailInput.value.trim()) { emit('toast', 'Veuillez saisir un e-mail'); return }
+  try {
+    await sendSessionToAccount(sess, transferEmailInput.value)
+    emit('toast', 'Session transférée avec succès !')
+    transferMatosSessionId.value = null
+  } catch (err: any) {
+    emit('toast', "Erreur lors de l'envoi")
+  }
+}
 
 // ─── ADD MATOS MODAL ───
 const addMatosSessionId = ref<number | null>(null)
@@ -306,6 +331,7 @@ function exportToPDF(s: any) {
               <button class="cat-check-all" @click="exportToPDF(s)"><FileDown :size="12" style="margin-right:4px" /> PDF</button>
               <button class="cat-check-all" @click="copySummary(s)"><Copy :size="12" style="margin-right:4px" /> Copier</button>
               <button class="cat-check-all" @click="shareEmail(s)"><Mail :size="12" style="margin-right:4px" /> E-mail</button>
+              <button class="cat-check-all" @click="openTransferModal(s.id)"><Send :size="12" style="margin-right:4px" /> Compte</button>
             </div>
           </div>
 
@@ -381,6 +407,27 @@ function exportToPDF(s: any) {
             <button class="btn btn-primary" style="flex:2" @click="confirmAdd">
               Ajouter ({{ Object.values(addQtys).filter(q => q > 0).length }} items)
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- ═══ TRANSFER MODAL ═══ -->
+    <Teleport to="body">
+      <div v-if="transferMatosSessionId !== null" class="modal-backdrop" @click.self="transferMatosSessionId = null">
+        <div class="modal-sheet" style="max-height:50dvh">
+          <div class="modal-handle"></div>
+          <div class="modal-title"><Send :size="20" style="color:var(--accent);vertical-align:middle;margin-right:8px" /> Envoyer à un compte</div>
+          <div class="modal-desc">Transfère cette session et son contenu au compte MonMatos cible.</div>
+
+          <div class="search-bar" style="margin:20px 0">
+            <Mail :size="16" class="search-icon" />
+            <input v-model="transferEmailInput" type="email" placeholder="E-mail du compte destinataire..." />
+          </div>
+
+          <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-secondary" style="flex:1" @click="transferMatosSessionId = null">Annuler</button>
+            <button class="btn btn-primary" style="flex:2" @click="confirmTransfer">Envoyer</button>
           </div>
         </div>
       </div>

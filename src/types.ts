@@ -70,3 +70,13 @@ export const STATUS_MAP: Record<StatusType, ItemStatusInfo> = {
   lent:   { label: 'Prêté',        color: '#8b5cf6',        icon: 'arrow-up-right' },
   lost:   { label: 'Perdu',        color: 'var(--danger)',  icon: 'x' },
 }
+
+export interface Transfer {
+  id: string
+  fromUid: string
+  fromEmail: string
+  toEmail: string
+  session: Session
+  status: 'pending' | 'accepted' | 'rejected'
+  createdAt: number
+}

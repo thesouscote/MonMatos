@@ -1,8 +1,10 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import type { UserData } from '../types'
+import { useStore } from '../store'
+import { useTransfers } from '../composables/useTransfers'
 import { hasAvailableStock } from '../composables/useStock'
 import {
   Clapperboard,
@@ -23,6 +25,17 @@ const emit = defineEmits<{
 
 const showProfile = ref(false)
 const user = auth.currentUser
+
+const store = useStore()
+const { pendingTransfers, listenTransfers, stopListeningTransfers, acceptTransfer, rejectTransfer } = useTransfers()
+
+onMounted(() => listenTransfers())
+onUnmounted(() => stopListeningTransfers())
+
+async function handleAccept(transferId: string, session: any) {
+  await acceptTransfer(transferId, session, store)
+  emit('toast', "Session et équipements acceptés !")
+}
 
 const pendingDepartures = computed(() =>
   (props.state.sessions || []).filter(s => s.phase === 'arrive' && !s.isReturned)
@@ -86,6 +99,20 @@ function pct(checked: number, total: number) {
     </div>
 
     <div class="page-content">
+      <!-- PENDING TRANSFERS ALERTS -->
+      <div v-if="pendingTransfers.length" class="transfer-alerts">
+        <div v-for="t in pendingTransfers" :key="t.id" class="transfer-card">
+          <div style="flex:1;font-size:13px">
+            <span style="color:var(--accent);font-weight:700">📦 Nouveau transfert</span><br>
+            <strong>{{ t.fromEmail }}</strong> t'a envoyé la session : <em>{{ t.session.name }}</em> ({{ (t.session.snapshot||[]).length }} équipements).
+          </div>
+          <div style="display:flex; flex-direction:column; gap:6px">
+            <button class="btn btn-sm btn-primary" @click="handleAccept(t.id, t.session)">Accepter</button>
+            <button class="btn btn-sm btn-secondary" style="background:transparent;border:1px solid var(--border2)" @click="rejectTransfer(t.id)">Refuser</button>
+          </div>
+        </div>
+      </div>
+
       <div class="grid-2">
         <!-- TECHNICAL DASHBOARD -->
         <div class="tech-dashboard" style="margin-bottom:0">
@@ -168,6 +195,14 @@ function pct(checked: number, total: number) {
   align-items: center;
   justify-content: space-between;
   padding: 24px 24px 0;
+}
+.transfer-alerts {
+  display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;
+}
+.transfer-card {
+  background: rgba(240,192,64,0.05); border: 1px dashed rgba(240,192,64,0.4);
+  border-radius: var(--radius); padding: 16px;
+  display: flex; align-items: center; gap: 16px;
 }
 .greeting {
   font-family: var(--font-mono);
