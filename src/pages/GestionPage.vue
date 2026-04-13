@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useStore } from '../store'
-import { storage } from '../firebase'
-import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
 import {
   Settings2,
   Package,
@@ -72,88 +70,15 @@ const form = ref({
   imageUrl: '',
 })
 
-const imageFile = ref<File | null>(null)
-const imagePreview = ref<string | null>(null)
 const isUploading = ref(false)
-const fileInput = ref<HTMLInputElement | null>(null)
-
-/**
- * Compresse une image via Canvas pour limiter le poids
- */
-async function compressImage(file: File): Promise<Blob> {
-  return new Promise((resolve, reject) => {
-    // Timeout de sécurité (10s)
-    const timeout = setTimeout(() => reject(new Error('Compression timeout')), 10000)
-
-    const reader = new FileReader()
-    reader.readAsDataURL(file)
-    reader.onload = (e) => {
-      const img = new Image()
-      img.src = e.target?.result as string
-      img.onerror = () => {
-        clearTimeout(timeout)
-        reject(new Error('Erreur de chargement de l\'image pour compression'))
-      }
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        const MAX_WIDTH = 1000
-        const MAX_HEIGHT = 1000
-        let width = img.width
-        let height = img.height
-
-        if (width > height) {
-          if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH }
-        } else {
-          if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT }
-        }
-
-        canvas.width = width
-        canvas.height = height
-        const ctx = canvas.getContext('2d')
-        ctx?.drawImage(img, 0, 0, width, height)
-        canvas.toBlob((blob) => {
-          clearTimeout(timeout)
-          if (blob) resolve(blob)
-          else reject(new Error('Canvas compression failed'))
-        }, 'image/jpeg', 0.8) // 80% quality
-      }
-    }
-    reader.onerror = (e) => {
-      clearTimeout(timeout)
-      reject(e)
-    }
-  })
-}
-
-function onFileChange(e: Event) {
-  const input = e.target as HTMLInputElement
-  if (input.files && input.files[0]) {
-    const file = input.files[0]
-    console.log("Fichier sélectionné:", file.name, file.size, file.type)
-    
-    if (file.size > 8 * 1024 * 1024) { 
-      emit('toast', 'Image trop lourde (max 8Mo)')
-      input.value = '' // Reset
-      return 
-    }
-    
-    imageFile.value = file
-    imagePreview.value = URL.createObjectURL(file)
-  }
-}
 
 function removePreview() {
-  imageFile.value = null
-  imagePreview.value = null
   form.value.imageUrl = ''
-  if (fileInput.value) fileInput.value.value = '' // Reset input physique
 }
 
 function openAddModal() {
   editingItem.value = null
   form.value = { name: '', cat: activeCat.value !== 'Tous' ? activeCat.value : '', qty: 1, tags: '', status: 'ok', imageUrl: '' }
-  imageFile.value = null
-  imagePreview.value = null
   showItemModal.value = true
 }
 
@@ -167,8 +92,6 @@ function openEditModal(item: Item) {
     status: item.status || 'ok',
     imageUrl: item.imageUrl || '',
   }
-  imageFile.value = null
-  imagePreview.value = item.imageUrl || null
   showItemModal.value = true
 }
 
@@ -185,32 +108,6 @@ async function saveItem() {
     let finalUrl = form.value.imageUrl
     const items = props.state.items || []
     const itemId = editingItem.value ? editingItem.value.id : (items.length ? Math.max(...items.map(i => i.id)) + 1 : 1)
-
-    // Handle Image Upload
-    if (imageFile.value && props.state._uid) {
-      console.log("Départ upload photo pour item:", itemId)
-      try {
-        const blob = await compressImage(imageFile.value)
-        const path = `users/${props.state._uid}/items/${itemId}.jpg`
-        const fileRef = storageRef(storage, path)
-        await uploadBytes(fileRef, blob)
-        finalUrl = await getDownloadURL(fileRef)
-        // Force refresh (cache busting)
-        finalUrl += (finalUrl.includes('?') ? '&' : '?') + `t=${Date.now()}`
-        console.log("Photo uploadée avec succès:", finalUrl)
-      } catch (uploadErr: any) {
-        console.error("Erreur spécifique upload/compression:", uploadErr)
-        emit('toast', "Erreur photo: " + (uploadErr.message || "vérifiez votre connexion"))
-        // On continue quand même la sauvegarde de l'item sans la nouvelle photo
-      }
-    } else if (imagePreview.value === null && form.value.imageUrl) {
-      // User removed the image
-      if (props.state._uid) {
-        const path = `users/${props.state._uid}/items/${itemId}.jpg`
-        try { await deleteObject(storageRef(storage, path)) } catch (e) {}
-      }
-      finalUrl = ''
-    }
 
     if (editingItem.value) {
       const idx = props.state.items.findIndex(i => i.id === editingItem.value!.id)
@@ -252,11 +149,6 @@ async function confirmDeleteItem() {
   if (idx === -1) return
 
   const item = props.state.items[idx]
-  // Nettoyage Storage
-  if (item.imageUrl && props.state._uid) {
-    const path = `users/${props.state._uid}/items/${id}.jpg`
-    try { await deleteObject(storageRef(storage, path)) } catch (e) {}
-  }
 
   props.state.items.splice(idx, 1)
   await save()
@@ -537,19 +429,17 @@ async function deleteTemplate(id: number) {
           <div class="modal-handle"></div>
           <div class="modal-title">{{ editingItem ? '✏️ Modifier' : '➕ Ajouter' }} un équipement</div>
 
-          <!-- PHOTO UPLOAD -->
+          <!-- PHOTO URL -->
           <div class="form-group">
-            <label>Photo</label>
-            <input ref="fileInput" type="file" accept="image/*" style="display:none" @change="onFileChange" />
-            <div class="photo-upload-zone" :class="{ 'has-image': imagePreview }" @click="fileInput?.click()">
-              <div v-if="imagePreview" class="photo-preview-wrap">
-                <img :src="imagePreview" class="photo-preview" />
-                <button class="btn-remove-photo" @click.stop="removePreview"><X :size="14" /></button>
-              </div>
-              <div v-else class="photo-placeholder">
-                <Camera :size="24" stroke-width="1.5" />
-                <span>Ajouter une photo</span>
-              </div>
+            <label>Lien de la photo (URL optionnelle)</label>
+            <div style="display:flex;gap:8px">
+              <input v-model="form.imageUrl" placeholder="https://..." style="flex:1" />
+              <button v-if="form.imageUrl" class="btn btn-secondary btn-sm" @click="removePreview" style="padding:0 12px">
+                <X :size="16" />
+              </button>
+            </div>
+            <div v-if="form.imageUrl" class="photo-preview-wrap" style="margin-top:10px;text-align:center">
+              <img :src="form.imageUrl" class="photo-preview" style="max-height:100px;border-radius:8px;object-fit:cover;width:100%" alt="Aperçu indisponible" />
             </div>
           </div>
 
