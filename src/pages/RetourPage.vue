@@ -54,10 +54,10 @@ const filteredByCat = (cat: string) =>
   sessionItems.value.filter(i => i.cat === cat && i.name.toLowerCase().includes(search.value.toLowerCase()))
 
 const allItems = computed(() => [...sessionItems.value, ...borrowedItems.value])
-const checkedCount = computed(() => allItems.value.filter(i => i.checkedDepart).length)
+const checkedCount = computed(() => allItems.value.filter(i => (i.takenDepart ?? (i as any).takenArrive ?? 0) > 0 || i.checkedDepart).length)
 const total = computed(() => allItems.value.length)
 const pct = computed(() => total.value ? Math.round((checkedCount.value / total.value) * 100) : 0)
-const allDone = computed(() => total.value > 0 && checkedCount.value === total.value)
+const allDone = computed(() => total.value > 0 && allItems.value.every(i => i.checkedDepart || (i.takenDepart ?? 0) > 0))
 
 function getMaxQty(item: Item): number {
   if (activeParentId.value && parentSession.value) {

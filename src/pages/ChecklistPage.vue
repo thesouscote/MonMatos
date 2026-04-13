@@ -26,10 +26,10 @@ const cats = computed(() => props.state.categories || [])
 const filteredByCat = (cat: string) =>
   sessionItems.value.filter(i => i.cat === cat && i.name.toLowerCase().includes(search.value.toLowerCase()))
 
-const checkedCount = computed(() => sessionItems.value.filter(i => i.checkedArrive).length)
+const checkedCount = computed(() => sessionItems.value.filter(i => (i.takenArrive ?? 0) > 0).length)
 const total = computed(() => sessionItems.value.length)
 const pct = computed(() => total.value ? Math.round((checkedCount.value / total.value) * 100) : 0)
-const allDone = computed(() => total.value > 0 && checkedCount.value === total.value)
+const allDone = computed(() => total.value > 0 && sessionItems.value.every(i => (i.takenArrive ?? 0) > 0))
 
 function toggleItem(item: Item) {
   if ((item.takenArrive ?? 0) === 0) {
@@ -58,7 +58,8 @@ function checkClass(item: Item) {
 }
 
 function openSave() {
-  if (checkedCount.value === 0) { emit('toast', 'Coche au moins un item !'); return }
+  const anyTaken = sessionItems.value.some(i => (i.takenArrive ?? 0) > 0)
+  if (!anyTaken) { emit('toast', 'Prends au moins un item !'); return }
   const d = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
   sessionName.value = `${d} – Départ`
   showSaveModal.value = true
@@ -137,9 +138,9 @@ function resetAll() {
             :key="item.id"
             class="item-card"
             :class="checkClass(item)"
-            @click="toggleItem(item)"
           >
-            <div class="check-circle">
+            <!-- Seul le cercle déclenche le toggle -->
+            <div class="check-circle" style="cursor:pointer" @click="toggleItem(item)">
               <span v-if="item.checkedArrive" class="check-icon">✓</span>
               <span v-else-if="(item.takenArrive ?? 0) > 0" class="partial-icon">~</span>
             </div>
@@ -149,10 +150,10 @@ function resetAll() {
                 <span v-for="tag in item.tags" :key="tag" class="tag-chip">{{ tag }}</span>
               </div>
             </div>
-            <div v-if="item.qty > 1" class="qty-selector" @click.stop>
-              <button class="qty-btn" @click="changeQty(item, -1)">−</button>
+            <div v-if="item.qty > 1" class="qty-selector">
+              <button class="qty-btn" @click.stop="changeQty(item, -1)">−</button>
               <span class="qty-val">{{ item.takenArrive ?? 0 }}/{{ item.qty }}</span>
-              <button class="qty-btn" @click="changeQty(item, 1)">+</button>
+              <button class="qty-btn" @click.stop="changeQty(item, 1)">+</button>
             </div>
             <span v-else class="item-qty-badge">×1</span>
           </div>
