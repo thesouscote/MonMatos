@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendPasswordResetEmail,
   updateProfile,
 } from 'firebase/auth'
 import { auth } from '../firebase'
@@ -15,6 +16,8 @@ const password = ref('')
 const prenom = ref('')
 const error = ref('')
 const loading = ref(false)
+const resetSent = ref(false)
+const showReset = ref(false)
 
 const canLogin = computed(() => email.value && password.value)
 const canRegister = computed(() => prenom.value && email.value && password.value.length >= 6)
@@ -40,6 +43,24 @@ async function register() {
     const cred = await createUserWithEmailAndPassword(auth, email.value, password.value)
     await updateProfile(cred.user, { displayName: prenom.value })
     emit('toast', `Bienvenue ${prenom.value} 🎬`)
+  } catch (e: any) {
+    error.value = firebaseMsg(e.code)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function forgotPassword() {
+  if (!email.value) {
+    error.value = 'Entre ton email pour recevoir le lien.'
+    return
+  }
+  loading.value = true
+  error.value = ''
+  try {
+    await sendPasswordResetEmail(auth, email.value)
+    resetSent.value = true
+    showReset.value = false
   } catch (e: any) {
     error.value = firebaseMsg(e.code)
   } finally {
@@ -77,10 +98,17 @@ function firebaseMsg(code: string) {
 
       <!-- LOGIN -->
       <div v-if="tab === 'login'" class="auth-form">
+        <div v-if="resetSent" class="auth-success">📧 Email envoyé ! Vérifie ta boîte mail.</div>
         <input v-model="email" type="email" placeholder="Email" @keyup.enter="login" />
-        <input v-model="password" type="password" placeholder="Mot de passe" @keyup.enter="login" />
-        <button class="btn btn-primary btn-full" :disabled="!canLogin || loading" @click="login">
+        <input v-if="!showReset" v-model="password" type="password" placeholder="Mot de passe" @keyup.enter="login" />
+        <button v-if="!showReset" class="btn btn-primary btn-full" :disabled="!canLogin || loading" @click="login">
           {{ loading ? 'Connexion…' : 'Se connecter' }}
+        </button>
+        <button v-if="showReset" class="btn btn-primary btn-full" :disabled="loading" @click="forgotPassword">
+          {{ loading ? 'Envoi…' : 'Envoyer le lien de réinitialisation' }}
+        </button>
+        <button class="btn-forgot" @click="showReset = !showReset; error = ''; resetSent = false">
+          {{ showReset ? '← Retour à la connexion' : 'Mot de passe oublié ?' }}
         </button>
       </div>
 
@@ -144,4 +172,22 @@ function firebaseMsg(code: string) {
   text-align: left;
 }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-forgot {
+  background: none;
+  color: var(--text2);
+  font-size: 12px;
+  text-decoration: underline;
+  padding: 4px;
+  margin-top: -4px;
+}
+.btn-forgot:hover { color: var(--accent); }
+.auth-success {
+  background: rgba(34,197,94,0.1);
+  border: 0.5px solid rgba(34,197,94,0.3);
+  border-radius: var(--radius-sm);
+  color: #22c55e;
+  font-size: 13px;
+  padding: 10px 14px;
+  text-align: left;
+}
 </style>
