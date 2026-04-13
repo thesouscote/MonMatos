@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import type { UserData } from '../types'
+import { hasAvailableStock } from '../composables/useStock'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{
@@ -15,6 +16,10 @@ const user = auth.currentUser
 
 const pendingDepartures = computed(() =>
   (props.state.sessions || []).filter(s => s.phase === 'arrive' && !s.isReturned)
+)
+
+const stockAvailable = computed(() =>
+  hasAvailableStock(props.state.items || [], props.state.sessions || [])
 )
 
 const recentSessions = computed(() => (props.state.sessions || []).slice(0, 3))
@@ -78,10 +83,11 @@ function pct(s: { checked: number; total: number }) {
 
       <!-- ACTIONS -->
       <div class="actions-grid">
-        <button class="action-card action-depart" @click="emit('navigate', 'checklist')">
+        <button class="action-card action-depart" :class="{ 'action-disabled': !stockAvailable }" @click="stockAvailable ? emit('navigate', 'checklist') : emit('toast', 'Aucun matos disponible — fais un retour !')">
           <span class="action-icon">🎬</span>
           <div class="action-title">Départ</div>
-          <div class="action-desc">Préparer le matériel</div>
+          <div class="action-desc">{{ stockAvailable ? 'Préparer le matériel' : 'Stock épuisé' }}</div>
+          <div v-if="!stockAvailable" class="action-no-stock">🔴</div>
         </button>
         <button class="action-card action-retour" @click="emit('navigate', 'retour')">
           <span class="action-icon">📦</span>
@@ -218,12 +224,18 @@ function pct(s: { checked: number; total: number }) {
 .action-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
 .action-badge {
   position: absolute; top: 10px; right: 10px;
-  background: var(--accent);
-  color: #0a0a0f;
+  background: var(--accent); color: #0a0a0f;
   font-size: 10px; font-weight: 800;
-  width: 20px; height: 20px;
-  border-radius: 50%;
+  width: 20px; height: 20px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
+}
+.action-disabled {
+  opacity: 0.55;
+  filter: grayscale(40%);
+}
+.action-no-stock {
+  position: absolute; top: 10px; right: 10px;
+  font-size: 14px;
 }
 .pending-banner {
   display: flex; align-items: center; gap: 8px;
