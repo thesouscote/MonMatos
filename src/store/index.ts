@@ -35,8 +35,19 @@ const state = reactive<UserData & { _uid: string | null }>({
   _uid: null,
 })
 
+function resetState() {
+  const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA))
+  state._uid = null
+  state.categories = fresh.categories
+  state.items = fresh.items
+  state.sessions = []
+  state.templates = []
+}
+
 export function useStore() {
   async function loadFromFirebase(uid: string) {
+    // Reset state first to avoid data bleeding between users
+    resetState()
     state._uid = uid
     const ref = doc(db, 'users', uid)
     const snap = await getDoc(ref)
@@ -81,5 +92,5 @@ export function useStore() {
     })
   }
 
-  return { state, loadFromFirebase, save }
+  return { state, loadFromFirebase, save, resetState }
 }

@@ -12,7 +12,7 @@ import HistoriquePage from './pages/HistoriquePage.vue'
 import GestionPage from './pages/GestionPage.vue'
 import ToastMsg from './components/ToastMsg.vue'
 
-const { state, loadFromFirebase } = useStore()
+const { state, loadFromFirebase, resetState } = useStore()
 
 type Page = 'home' | 'checklist' | 'retour' | 'historique' | 'gestion'
 
@@ -45,6 +45,7 @@ onMounted(() => {
 
 async function logout() {
   await signOut(auth)
+  resetState()
   showProfile.value = false
   isLoggedIn.value = false
 }
