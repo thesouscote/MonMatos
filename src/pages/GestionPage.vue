@@ -194,7 +194,7 @@ async function confirmTransferItem() {
     const item = itemToTransfer.value
     const transferQty = transferForm.value.qty || 1
     
-    // On crée une fausse "Session" pour réutiliser la logique d'import/export
+      // On crée une fausse "Session" pour réutiliser la logique d'import/export
     const fakeSession = {
       id: Date.now(),
       name: `Transfert reçu : ${item.name}`,
@@ -205,14 +205,16 @@ async function confirmTransferItem() {
       total: 1,
       comments: 'Transfert direct depuis la page Gestion',
       snapshot: [{
-        id: item.id,
-        name: item.name,
-        cat: item.cat,
-        qty: transferQty,
-        taken: transferQty,
+        id: item.id || Date.now(),
+        name: item.name || 'Sans Nom',
+        cat: item.cat || 'Divers',
+        qty: transferQty || 1,
+        taken: transferQty || 1,
         checked: true,
         borrowedFrom: null,
-        imageUrl: item.imageUrl
+        imageUrl: item.imageUrl || '',
+        tags: item.tags || [],
+        status: item.status || 'ok'
       }]
     }
     

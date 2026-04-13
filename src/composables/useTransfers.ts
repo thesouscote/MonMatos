@@ -61,13 +61,16 @@ export function useTransfers() {
            name: snap.name,
            cat: snap.cat || 'Divers',
            qty: snap.qty || snap.taken, // at least the quantity in the session
-           status: 'ok',
-           tags: []
+           status: snap.status || 'ok',
+           tags: snap.tags || [],
+           imageUrl: snap.imageUrl || ''
         })
       } else {
         // If it exists, user requested to just add them: "ça doit jute rajouter"
         // Let's add the session quantity to the existing item's quantity
         existing.qty += (snap.qty || snap.taken)
+        // Optionally update the imageUrl if the received one has it but existing doesn't
+        if (!existing.imageUrl && snap.imageUrl) existing.imageUrl = snap.imageUrl
       }
     }
     
