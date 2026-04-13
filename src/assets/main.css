@@ -42,7 +42,7 @@ html, body, #app {
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 99px; }
 
 /* ── BUTTONS ── */
-button { cursor: pointer; font-family: var(--font); border: none; background: none; }
+button { cursor: pointer; font-family: var(--font); border: none; background: transparent; color: inherit; }
 
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   padding: 12px 20px; border-radius: var(--radius); font-weight: 600; font-size: 14px;
@@ -104,6 +104,7 @@ select option { background: var(--surface2); }
   font-size: 16px;
   flex-shrink: 0;
   transition: background 0.15s;
+  color: var(--text);
 }
 .back-btn:hover { background: var(--surface); }
 
@@ -120,9 +121,7 @@ select option { background: var(--surface2); }
   transform: translateX(-50%);
   width: 100%;
   max-width: 480px;
-  background: rgba(22, 22, 31, 0.92);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: #16161f;
   border-top: 0.5px solid var(--border2);
   display: flex;
   padding: 8px 0 env(safe-area-inset-bottom);
@@ -257,6 +256,7 @@ select option { background: var(--surface2); }
   border: 0.5px solid var(--border2);
   transition: background 0.15s;
   flex-shrink: 0;
+  line-height: 1;
 }
 .qty-btn:hover { background: var(--border2); }
 .qty-val {
