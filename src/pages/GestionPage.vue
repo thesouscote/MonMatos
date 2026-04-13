@@ -196,7 +196,7 @@ async function saveItem() {
         await uploadBytes(fileRef, blob)
         finalUrl = await getDownloadURL(fileRef)
         // Force refresh (cache busting)
-        finalUrl += `?t=${Date.now()}`
+        finalUrl += (finalUrl.includes('?') ? '&' : '?') + `t=${Date.now()}`
         console.log("Photo uploadée avec succès:", finalUrl)
       } catch (uploadErr: any) {
         console.error("Erreur spécifique upload/compression:", uploadErr)
