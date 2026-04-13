@@ -4,6 +4,16 @@ import { signOut } from 'firebase/auth'
 import { auth } from '../firebase'
 import type { UserData } from '../types'
 import { hasAvailableStock } from '../composables/useStock'
+import {
+  Clapperboard,
+  Package,
+  Sparkles,
+  ClipboardList,
+  Settings2,
+  House,
+  ChevronRight,
+  Check
+} from 'lucide-vue-next'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{
@@ -59,7 +69,7 @@ function pct(s: { checked: number; total: number }) {
     <!-- HEADER -->
     <div class="home-header">
       <div>
-        <div class="greeting">Bonjour, <span class="name">{{ user?.displayName || 'Réalisateur' }}</span> 👋</div>
+        <div class="greeting">Bonjour, <span class="name">{{ user?.displayName || 'Réalisateur' }}</span> <Sparkles :size="14" style="color:var(--accent);display:inline-block;vertical-align:middle" /></div>
         <div class="date">{{ new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) }}</div>
       </div>
       <button class="avatar-btn" @click="showProfile = true">
@@ -116,24 +126,30 @@ function pct(s: { checked: number; total: number }) {
           :class="{ 'big-cta-disabled': !stockAvailable }"
           @click="stockAvailable ? emit('navigate', 'checklist') : emit('toast', 'Aucun matos disponible — fais d\'abord un retour !')"
         >
-          <span class="big-cta-icon">🎬</span>
+          <div class="big-cta-icon-wrap">
+            <Clapperboard :size="32" stroke-width="2" />
+          </div>
           <div class="big-cta-text">
             <span class="big-cta-title">Préparer un Tournage</span>
             <span class="big-cta-sub">{{ stockAvailable ? availableUnitCount + ' unités disponibles' : 'Stock épuisé' }}</span>
           </div>
-          <span class="big-cta-arrow">{{ stockAvailable ? '→' : '🔴' }}</span>
+          <ChevronRight v-if="stockAvailable" :size="20" class="big-cta-arrow" />
+          <span v-else class="big-cta-arrow" style="font-size:12px">🔴</span>
         </button>
 
         <!-- Retour secondary -->
         <button class="retour-btn" @click="emit('navigate', 'retour')">
-          <span>📦 {{ pendingDepartures.length > 0 ? `${pendingDepartures.length} tournage${pendingDepartures.length > 1 ? 's' : ''} en attente de retour` : 'Enregistrer un retour' }}</span>
+          <div style="display:flex;align-items:center;gap:10px">
+            <Package :size="16" style="color:var(--accent)" />
+            <span>{{ pendingDepartures.length > 0 ? `${pendingDepartures.length} tournage${pendingDepartures.length > 1 ? 's' : ''} en attente de retour` : 'Enregistrer un retour' }}</span>
+          </div>
           <span v-if="pendingDepartures.length" class="retour-badge">{{ pendingDepartures.length }}</span>
         </button>
       </div>
 
       <!-- EMPTY STATE (no sessions at all) -->
       <div v-if="!recentSessions.length" class="empty-state">
-        <span class="empty-icon">🎬</span>
+        <Clapperboard :size="48" style="opacity:0.2;margin-bottom:12px" />
         <p>Aucune session encore.<br>Lance ton premier tournage !</p>
       </div>
 
@@ -142,13 +158,13 @@ function pct(s: { checked: number; total: number }) {
     <!-- NAV -->
     <nav class="nav-bar">
       <button class="nav-item active" @click="emit('navigate', 'checklist')">
-        <span class="nav-icon">✓</span><span>Checklist</span>
+        <Check :size="20" class="nav-icon" /><span>Checklist</span>
       </button>
       <button class="nav-item" @click="emit('navigate', 'historique')">
-        <span class="nav-icon">📋</span><span>Historique</span>
+        <ClipboardList :size="20" class="nav-icon" /><span>Historique</span>
       </button>
       <button class="nav-item" @click="emit('navigate', 'gestion')">
-        <span class="nav-icon">⚙️</span><span>Gestion</span>
+        <Settings2 :size="20" class="nav-icon" /><span>Gestion</span>
       </button>
     </nav>
 
@@ -239,11 +255,16 @@ function pct(s: { checked: number; total: number }) {
   opacity: 0.5; filter: grayscale(40%);
   box-shadow: none;
 }
-.big-cta-icon { font-size: 36px; flex-shrink: 0; }
+.big-cta-icon-wrap {
+  width: 54px; height: 54px; border-radius: 12px;
+  background: var(--accent); color: #0a0a0f;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
 .big-cta-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .big-cta-title { font-size: 17px; font-weight: 800; color: var(--text); }
 .big-cta-sub   { font-size: 12px; color: var(--text2); }
-.big-cta-arrow { font-size: 20px; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.big-cta-arrow { color: var(--accent); flex-shrink: 0; }
 
 .retour-btn {
   width: 100%; display: flex; align-items: center; justify-content: space-between;

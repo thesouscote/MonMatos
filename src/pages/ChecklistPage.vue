@@ -3,6 +3,17 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useStore } from '../store'
 import type { UserData, Item } from '../types'
 import { getAvailableQty } from '../composables/useStock'
+import {
+  Clapperboard,
+  ChevronLeft,
+  Search,
+  X,
+  Check,
+  Minus,
+  Plus,
+  AlertCircle,
+  Save
+} from 'lucide-vue-next'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
@@ -116,6 +127,7 @@ async function confirmSave() {
       taken: i.takenArrive ?? 0,
       checked: !!i.checkedArrive,
       borrowedFrom: null,
+      imageUrl: i.imageUrl,
     })),
     isReturned: false,
     linkedToDepartId: null,
@@ -136,8 +148,11 @@ function resetAll() {
   <div class="page-root">
     <!-- HEADER -->
     <div class="page-header">
-      <button class="back-btn" @click="emit('back')">←</button>
-      <h1>🎬 Départ</h1>
+      <button class="back-btn" @click="emit('back')"><ChevronLeft :size="20" /></button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <Clapperboard :size="22" stroke-width="2.5" style="color:var(--accent)" />
+        <h1>Départ</h1>
+      </div>
       <div class="progress-pill">{{ takenQty }}/{{ totalQty }}</div>
     </div>
 
@@ -149,7 +164,7 @@ function resetAll() {
     <div class="page-content">
       <!-- NO STOCK WARNING -->
       <div v-if="!hasAnyStock" class="no-stock-banner">
-        <span>🔴</span>
+        <AlertCircle :size="20" />
         <div>
           <div style="font-weight:700; margin-bottom:2px">Aucun matos disponible</div>
           <div style="font-size:12px; color:var(--text2)">Tout ton matériel est déjà en cours de tournage. Fais d'abord un retour !</div>
@@ -158,20 +173,20 @@ function resetAll() {
 
       <!-- STOCK WARNING (partial) -->
       <div v-else-if="noStockCount > 0" class="partial-stock-banner">
-        <span>⚠️</span>
+        <AlertCircle :size="14" />
         <span>{{ noStockCount }} item{{ noStockCount > 1 ? 's' : '' }} épuisé{{ noStockCount > 1 ? 's' : '' }} (déjà en tournage)</span>
       </div>
 
       <!-- SEARCH -->
       <div class="search-bar">
-        <span class="search-icon">🔍</span>
+        <Search :size="16" class="search-icon" />
         <input v-model="search" placeholder="Rechercher un équipement…" />
-        <button v-if="search" @click="search = ''" style="color: var(--text3); font-size: 16px;">✕</button>
+        <button v-if="search" @click="search = ''"><X :size="16" style="color: var(--text3)" /></button>
       </div>
 
       <!-- DONE BANNER -->
       <div v-if="allDone" class="done-banner animate-in">
-        <div class="title">🎉 Tout est prêt !</div>
+        <div class="title"><Check :size="18" style="display:inline-block;vertical-align:middle;margin-right:6px" /> Tout est prêt !</div>
         <div class="sub">Tout le stock disponible est vérifié. Appuie sur Sauvegarder !</div>
       </div>
 
@@ -196,8 +211,12 @@ function resetAll() {
               :style="item.availableQty === 0 ? 'opacity:0.3; cursor:not-allowed' : 'cursor:pointer'"
               @click="toggleItem(item)"
             >
-              <span v-if="item.checkedArrive" class="check-icon">✓</span>
-              <span v-else-if="(item.takenArrive ?? 0) > 0" class="partial-icon">~</span>
+              <Check v-if="item.checkedArrive" :size="12" stroke-width="3" />
+              <div v-else-if="(item.takenArrive ?? 0) > 0" class="partial-dot"></div>
+            </div>
+
+            <div v-if="item.imageUrl" class="item-mini-thumb" @click="toggleItem(item)">
+              <img :src="item.imageUrl" alt="" loading="lazy" />
             </div>
 
             <div
@@ -224,9 +243,9 @@ function resetAll() {
 
             <!-- QTY SELECTOR (only if stock available) -->
             <div v-if="item.availableQty > 1" class="qty-selector">
-              <button class="qty-btn" @click.stop="changeQty(item, -1)">−</button>
+              <button class="qty-btn" @click.stop="changeQty(item, -1)"><Minus :size="14" /></button>
               <span class="qty-val">{{ item.takenArrive ?? 0 }}/{{ item.availableQty }}</span>
-              <button class="qty-btn" @click.stop="changeQty(item, 1)">+</button>
+              <button class="qty-btn" @click.stop="changeQty(item, 1)"><Plus :size="14" /></button>
             </div>
             <span v-else-if="item.availableQty === 1" class="item-qty-badge">×1</span>
             <span v-else class="item-qty-badge" style="opacity:0.3">×0</span>
@@ -246,7 +265,7 @@ function resetAll() {
       <div v-if="showSaveModal" class="modal-backdrop" @click.self="showSaveModal = false">
         <div class="modal-sheet">
           <div class="modal-handle"></div>
-          <div class="modal-title">💾 Sauver le départ</div>
+          <div class="modal-title"><Save :size="20" style="color:var(--accent);display:inline-block;vertical-align:middle;margin-right:8px" /> Sauver le départ</div>
           <div class="modal-desc">{{ takenQty }} unités emportées</div>
           <input v-model="sessionName" placeholder="Nom du tournage" style="margin-bottom:16px" />
           <div class="modal-actions">
@@ -275,7 +294,7 @@ function resetAll() {
   background: rgba(22,22,31,0.95); backdrop-filter: blur(20px);
   border-top: 0.5px solid var(--border2);
 }
-.partial-icon { font-size: 11px; color: var(--warn); font-weight: 900; }
+.partial-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 
 /* Stock indicators */
 .stock-line { display: flex; align-items: center; gap: 6px; margin-top: 3px; flex-wrap: wrap; }
@@ -307,5 +326,12 @@ function resetAll() {
   border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 12px;
   font-size: 12px; color: var(--warn);
 }
+.item-mini-thumb {
+  width: 38px; height: 38px; border-radius: 6px;
+  overflow: hidden; background: var(--surface2);
+  margin-right: 2px; flex-shrink: 0;
+  border: 0.5px solid var(--border2);
+}
+.item-mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
 </style>

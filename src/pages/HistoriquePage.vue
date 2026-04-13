@@ -2,6 +2,24 @@
 import { ref, computed } from 'vue'
 import { useStore } from '../store'
 import type { UserData } from '../types'
+import {
+  ClipboardList,
+  ChevronLeft,
+  Search,
+  X,
+  LayoutGrid,
+  Activity,
+  CheckCircle2,
+  History,
+  Calendar,
+  ChevronDown,
+  ChevronUp,
+  Timer,
+  Minus,
+  Plus,
+  Trash2,
+  Copy
+} from 'lucide-vue-next'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
@@ -48,7 +66,7 @@ async function confirmAdd() {
     .map(([id, qty]) => {
       const item = (props.state.items || []).find(i => i.id === Number(id))
       if (!item) return null
-      return { id: item.id, name: item.name, cat: item.cat, qty: item.qty, taken: qty, checked: qty === item.qty, borrowedFrom: null }
+      return { id: item.id, name: item.name, cat: item.cat, qty: item.qty, taken: qty, checked: qty === item.qty, borrowedFrom: null, imageUrl: item.imageUrl }
     })
     .filter(Boolean) as typeof sess.snapshot
 
@@ -152,8 +170,11 @@ async function deleteSession(id: number) {
 <template>
   <div class="page-root">
     <div class="page-header">
-      <button class="back-btn" @click="emit('back')">←</button>
-      <h1>📋 Historique</h1>
+      <button class="back-btn" @click="emit('back')"><ChevronLeft :size="20" /></button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <ClipboardList :size="22" stroke-width="2.5" style="color:var(--accent)" />
+        <h1>Historique</h1>
+      </div>
       <div class="progress-pill" v-if="activeSessions.length">
         🔴 {{ activeSessions.length }} en cours
       </div>
@@ -162,46 +183,53 @@ async function deleteSession(id: number) {
     <div class="page-content">
       <!-- SEARCH -->
       <div class="search-bar">
-        <span class="search-icon">🔍</span>
+        <Search :size="16" class="search-icon" />
         <input v-model="search" placeholder="Rechercher une session…" />
-        <button v-if="search" @click="search = ''" style="color:var(--text3);font-size:16px">✕</button>
+        <button v-if="search" @click="search = ''"><X :size="16" style="color:var(--text3)" /></button>
       </div>
 
       <!-- FILTER TABS -->
       <div class="filter-tabs">
         <button class="filter-tab" :class="{ active: filterTab === 'all' }" @click="filterTab = 'all'">
-          Toutes ({{ (state.sessions || []).length }})
+          <LayoutGrid :size="14" /> Toutes ({{ (state.sessions || []).length }})
         </button>
         <button class="filter-tab" :class="{ active: filterTab === 'active' }" @click="filterTab = 'active'">
-          🔴 En cours ({{ activeSessions.length }})
+          <Activity :size="14" /> En cours ({{ activeSessions.length }})
         </button>
         <button class="filter-tab" :class="{ active: filterTab === 'done' }" @click="filterTab = 'done'">
-          ✅ Clôturées
+          <CheckCircle2 :size="14" /> Clôturées
         </button>
       </div>
 
       <div v-if="!filtered.length" class="empty-state">
-        <span class="empty-icon">📋</span>
+        <History :size="48" style="opacity:0.2;margin-bottom:12px" />
         <p>Aucune session trouvée.</p>
       </div>
 
       <div v-for="s in filtered" :key="s.id" class="hist-session">
         <!-- HEADER ROW -->
         <div class="hist-header" @click="toggle(s.id)">
-          <div style="flex:1; min-width:0">
-            <div class="hist-title">{{ s.name }}</div>
-            <div class="hist-date">{{ formatDate(s.date) }}</div>
+          <div style="flex:1; min-width:0; display:flex; gap:12px; align-items:center">
+            <div class="hist-icon-box">
+              <Package v-if="s.phase === 'depart'" :size="16" />
+              <Clapperboard v-else :size="16" />
+            </div>
+            <div style="flex:1; min-width:0">
+              <div class="hist-title">{{ s.name }}</div>
+              <div class="hist-date"><Calendar :size="10" style="vertical-align:middle;margin-right:2px" /> {{ formatDate(s.date) }}</div>
+            </div>
           </div>
           <div style="display:flex; align-items:center; gap:6px; flex-shrink:0">
             <!-- Duration badge for active departures -->
             <span
               v-if="s.phase === 'arrive' && !s.isReturned && daysSince(s.date) > 0"
               class="duration-badge"
-            >⏱ {{ durationLabel(daysSince(s.date)) }}</span>
+            ><Timer :size="10" /> {{ durationLabel(daysSince(s.date)) }}</span>
             <span class="badge" :class="pct(s) === 100 ? 'badge-ok' : 'badge-partial'">
-              {{ phaseLabel(s) }}
+              {{ phaseLabel(s).replace(/[🎬📦]/g, '') }}
             </span>
-            <span style="color:var(--text3); font-size:12px">{{ openSessions.has(s.id) ? '▲' : '▼' }}</span>
+            <ChevronUp v-if="openSessions.has(s.id)" :size="16" style="color:var(--text3)" />
+            <ChevronDown v-else :size="16" style="color:var(--text3)" />
           </div>
         </div>
 
@@ -209,21 +237,22 @@ async function deleteSession(id: number) {
         <div class="hist-body" :class="{ open: openSessions.has(s.id) }">
           <div class="hist-phase-label" style="display:flex;align-items:center;justify-content:space-between">
             <span>{{ s.phase === 'depart' ? 'Équipements retournés' : 'Équipements emportés' }}</span>
-            <button class="cat-check-all" @click="copySummary(s)">📋 Copier</button>
+            <button class="cat-check-all" @click="copySummary(s)"><Copy :size="12" style="margin-right:4px" /> Copier</button>
           </div>
 
           <!-- SNAPSHOT ITEMS (editable) -->
           <div v-for="(item, idx) in (s.snapshot || [])" :key="item.id" class="hist-item-row">
-            <div class="dot" :class="item.checked ? 'dot-ok' : (item.taken > 0 ? 'dot-warn' : 'dot-ko')"></div>
+            <div class="dot" :class="item.checked ? 'dot-ok' : (item.taken > 0 ? 'dot-warn' : 'dotKo')"></div>
+            <img v-if="item.imageUrl" :src="item.imageUrl" class="hist-mini-thumb" loading="lazy" />
             <span class="hist-item-name">
               {{ item.name }}
               <span v-if="item.borrowedFrom" style="color:var(--warn);font-size:11px"> – {{ item.borrowedFrom }}</span>
             </span>
             <div class="snap-qty" @click.stop>
-              <button class="snap-btn" @click="updateSnapQty(s, idx, -1)">−</button>
+              <button class="snap-btn" @click="updateSnapQty(s, idx, -1)"><Minus :size="10" /></button>
               <span>{{ item.taken }}/{{ item.qty }}</span>
-              <button class="snap-btn" @click="updateSnapQty(s, idx, 1)">+</button>
-              <button class="snap-del" @click="removeSnapItem(s, idx)">✕</button>
+              <button class="snap-btn" @click="updateSnapQty(s, idx, 1)"><Plus :size="10" /></button>
+              <button class="snap-del" @click="removeSnapItem(s, idx)"><Trash2 :size="14" /></button>
             </div>
           </div>
 
@@ -231,7 +260,7 @@ async function deleteSession(id: number) {
 
           <!-- ADD MATOS button -->
           <button class="btn-add-matos" @click="openAddModal(s.id)">
-            + Ajouter du matos à cette session
+            <Plus :size="14" style="margin-right:6px" /> Ajouter du matos à cette session
           </button>
 
           <!-- DELETE -->
@@ -241,7 +270,7 @@ async function deleteSession(id: number) {
             <button class="btn btn-secondary btn-sm" @click="confirmDeleteId = null">Annuler</button>
           </div>
           <button v-else class="btn btn-danger btn-sm btn-full" style="margin-top:6px" @click="confirmDeleteId = s.id">
-            🗑️ Supprimer cette session
+            <Trash2 :size="16" style="margin-right:8px" /> Supprimer cette session
           </button>
         </div>
       </div>
@@ -252,11 +281,11 @@ async function deleteSession(id: number) {
       <div v-if="addMatosSessionId !== null" class="modal-backdrop" @click.self="addMatosSessionId = null">
         <div class="modal-sheet" style="max-height:85dvh">
           <div class="modal-handle"></div>
-          <div class="modal-title">➕ Ajouter du matos</div>
+          <div class="modal-title"><Plus :size="20" style="color:var(--accent);vertical-align:middle;margin-right:8px" /> Ajouter du matos</div>
           <div class="modal-desc">{{ targetSession?.name }}</div>
 
           <div class="search-bar" style="margin-bottom:12px">
-            <span class="search-icon">🔍</span>
+            <Search :size="16" class="search-icon" />
             <input v-model="addSearch" placeholder="Rechercher un équipement…" />
           </div>
 
@@ -270,11 +299,11 @@ async function deleteSession(id: number) {
               <div class="add-item-cat">{{ item.cat }}</div>
             </div>
             <div class="add-qty-row">
-              <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) - 1, item.qty)">−</button>
+              <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) - 1, item.qty)"><Minus :size="14" /></button>
               <span class="qty-val" :class="{ 'qty-active': (addQtys[item.id] ?? 0) > 0 }">
                 {{ addQtys[item.id] ?? 0 }}/{{ item.qty }}
               </span>
-              <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) + 1, item.qty)">+</button>
+              <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) + 1, item.qty)"><Plus :size="14" /></button>
             </div>
           </div>
 
@@ -325,5 +354,19 @@ async function deleteSession(id: number) {
 .add-item-name { font-size: 13px; font-weight: 600; }
 .add-item-cat  { font-size: 11px; color: var(--text3); }
 .add-qty-row   { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.add-item-cat  { font-size: 11px; color: var(--text3); }
+.add-qty-row   { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .qty-active    { color: var(--accent); font-weight: 700; }
+.hist-mini-thumb {
+  width: 28px; height: 28px; border-radius: 4px;
+  object-fit: cover; background: var(--surface2);
+  border: 0.5px solid var(--border2); flex-shrink: 0;
+}
+.hist-icon-box {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: var(--surface2); color: var(--text3);
+  display: flex; align-items: center; justify-content: center;
+}
+.duration-badge { display: flex; align-items: center; gap: 4px; }
+.filter-tab { display: flex; align-items: center; gap: 6px; }
 </style>

@@ -1,12 +1,35 @@
-<script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useStore } from '../store'
+import { storage } from '../firebase'
+import { ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'
+import {
+  Settings2,
+  Package,
+  Tag,
+  ClipboardList,
+  Search,
+  X,
+  Pencil,
+  Trash2,
+  Plus,
+  Camera,
+  Check,
+  Wrench,
+  ArrowUpRight,
+  ChevronLeft
+} from 'lucide-vue-next'
 import type { UserData, Item, StatusType, Template } from '../types'
 import { STATUS_MAP } from '../types'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
 const { save } = useStore()
+
+// Helper to resolve status icon
+const getStatusIcon = (iconName: string) => {
+  const map: any = { check: Check, wrench: Wrench, 'arrow-up-right': ArrowUpRight, x: X }
+  return map[iconName] || Check
+}
 
 // ─── TABS ───
 type GestionTab = 'items' | 'categories' | 'templates'
@@ -35,6 +58,8 @@ const itemsByCat = computed(() => {
 
 // ─── ADD / EDIT MODAL ───
 const showItemModal = ref(false)
+const showDeleteConfirm = ref(false)
+const itemToDelete = ref<number | null>(null)
 const editingItem = ref<Item | null>(null)
 
 const form = ref({
@@ -43,11 +68,71 @@ const form = ref({
   qty: 1,
   tags: '',
   status: 'ok' as StatusType,
+  imageUrl: '',
 })
+
+const imageFile = ref<File | null>(null)
+const imagePreview = ref<string | null>(null)
+const isUploading = ref(false)
+
+/**
+ * Compresse une image via Canvas pour limiter le poids
+ */
+async function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = (e) => {
+      const img = new Image()
+      img.src = e.target?.result as string
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const MAX_WIDTH = 800
+        const MAX_HEIGHT = 800
+        let width = img.width
+        let height = img.height
+
+        if (width > height) {
+          if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH }
+        } else {
+          if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT }
+        }
+
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+        ctx?.drawImage(img, 0, 0, width, height)
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob)
+          else reject(new Error('Canvas compression failed'))
+        }, 'image/jpeg', 0.7) // 70% quality
+      }
+    }
+    reader.onerror = reject
+  })
+}
+
+function onFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files && input.files[0]) {
+    const file = input.files[0]
+    if (file.size > 5 * 1024 * 1024) { emit('toast', 'Image trop lourde (max 5Mo)'); return }
+    imageFile.value = file
+    imagePreview.value = URL.createObjectURL(file)
+  }
+}
+
+function removePreview() {
+  imageFile.value = null
+  imagePreview.value = null
+  form.value.imageUrl = ''
+}
 
 function openAddModal() {
   editingItem.value = null
-  form.value = { name: '', cat: activeCat.value !== 'Tous' ? activeCat.value : '', qty: 1, tags: '', status: 'ok' }
+  form.value = { name: '', cat: activeCat.value !== 'Tous' ? activeCat.value : '', qty: 1, tags: '', status: 'ok', imageUrl: '' }
+  imageFile.value = null
+  imagePreview.value = null
   showItemModal.value = true
 }
 
@@ -59,7 +144,10 @@ function openEditModal(item: Item) {
     qty: item.qty,
     tags: (item.tags || []).join(', '),
     status: item.status || 'ok',
+    imageUrl: item.imageUrl || '',
   }
+  imageFile.value = null
+  imagePreview.value = item.imageUrl || null
   showItemModal.value = true
 }
 
@@ -70,33 +158,81 @@ async function saveItem() {
   if (!cat) { emit('toast', 'La catégorie est requise !'); return }
 
   const tags = form.value.tags.split(',').map(t => t.trim()).filter(Boolean)
+  isUploading.value = true
 
-  if (editingItem.value) {
-    // Edit existing
-    const idx = props.state.items.findIndex(i => i.id === editingItem.value!.id)
-    if (idx !== -1) {
-      props.state.items[idx] = {
-        ...props.state.items[idx],
-        name, cat, qty: form.value.qty || 1, tags, status: form.value.status,
-      }
-    }
-    emit('toast', `${name} mis à jour !`)
-  } else {
-    // Add new
+  try {
+    let finalUrl = form.value.imageUrl
     const items = props.state.items || []
-    const newId = items.length ? Math.max(...items.map(i => i.id)) + 1 : 1
-    props.state.items.push({ id: newId, name, cat, qty: form.value.qty || 1, tags, status: form.value.status })
-    emit('toast', `${name} ajouté !`)
-  }
+    const itemId = editingItem.value ? editingItem.value.id : (items.length ? Math.max(...items.map(i => i.id)) + 1 : 1)
 
-  await save()
-  showItemModal.value = false
+    // Handle Image Upload
+    if (imageFile.value && props.state._uid) {
+      const blob = await compressImage(imageFile.value)
+      const path = `users/${props.state._uid}/items/${itemId}.jpg`
+      const fileRef = storageRef(storage, path)
+      await uploadBytes(fileRef, blob)
+      finalUrl = await getDownloadURL(fileRef)
+      // Force refresh (cache busting)
+      finalUrl += `?t=${Date.now()}`
+    } else if (imagePreview.value === null && form.value.imageUrl) {
+      // User removed the image
+      if (props.state._uid) {
+        const path = `users/${props.state._uid}/items/${itemId}.jpg`
+        try { await deleteObject(storageRef(storage, path)) } catch (e) {}
+      }
+      finalUrl = ''
+    }
+
+    if (editingItem.value) {
+      const idx = props.state.items.findIndex(i => i.id === editingItem.value!.id)
+      if (idx !== -1) {
+        props.state.items[idx] = {
+          ...props.state.items[idx],
+          name, cat, qty: form.value.qty || 1, tags, status: form.value.status,
+          imageUrl: finalUrl,
+        }
+      }
+      emit('toast', `${name} mis à jour !`)
+    } else {
+      props.state.items.push({
+        id: itemId, name, cat, qty: form.value.qty || 1, tags, status: form.value.status,
+        imageUrl: finalUrl,
+      })
+      emit('toast', `${name} ajouté !`)
+    }
+
+    await save()
+    showItemModal.value = false
+  } catch (e: any) {
+    console.error(e)
+    emit('toast', "Erreur lors de la sauvegarde")
+  } finally {
+    isUploading.value = false
+  }
 }
 
-async function deleteItem(id: number) {
+function askDeleteItem(id: number) {
+  itemToDelete.value = id
+  showDeleteConfirm.value = true
+}
+
+async function confirmDeleteItem() {
+  if (itemToDelete.value === null) return
+  const id = itemToDelete.value
   const idx = props.state.items.findIndex(i => i.id === id)
-  if (idx !== -1) props.state.items.splice(idx, 1)
+  if (idx === -1) return
+
+  const item = props.state.items[idx]
+  // Nettoyage Storage
+  if (item.imageUrl && props.state._uid) {
+    const path = `users/${props.state._uid}/items/${id}.jpg`
+    try { await deleteObject(storageRef(storage, path)) } catch (e) {}
+  }
+
+  props.state.items.splice(idx, 1)
   await save()
+  showDeleteConfirm.value = false
+  itemToDelete.value = null
   showItemModal.value = false
   emit('toast', 'Équipement supprimé')
 }
@@ -178,20 +314,23 @@ async function deleteTemplate(id: number) {
   <div class="page-root">
     <!-- HEADER -->
     <div class="page-header">
-      <button class="back-btn" @click="emit('back')">←</button>
-      <h1>⚙️ Gestion</h1>
+      <button class="back-btn" @click="emit('back')"><ChevronLeft :size="20" /></button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <Settings2 :size="22" stroke-width="2.5" style="color:var(--accent)" />
+        <h1>Gestion</h1>
+      </div>
     </div>
 
     <!-- TABS -->
     <div class="tab-bar">
       <button :class="{ active: tab === 'items' }" @click="tab = 'items'">
-        📦 Équipements <span class="tab-count">{{ state.items?.length ?? 0 }}</span>
+        <Package :size="14" /> Items <span class="tab-count">{{ state.items?.length ?? 0 }}</span>
       </button>
       <button :class="{ active: tab === 'categories' }" @click="tab = 'categories'">
-        🏷️ Catégories
+        <Tag :size="14" /> Catégories
       </button>
       <button :class="{ active: tab === 'templates' }" @click="tab = 'templates'">
-        📋 Templates
+        <ClipboardList :size="14" /> Templates
       </button>
     </div>
 
@@ -201,9 +340,9 @@ async function deleteTemplate(id: number) {
       <template v-if="tab === 'items'">
         <!-- SEARCH -->
         <div class="search-bar" style="margin-bottom:12px">
-          <span class="search-icon">🔍</span>
+          <Search :size="16" class="search-icon" />
           <input v-model="search" placeholder="Rechercher un équipement…" />
-          <button v-if="search" @click="search=''" style="color:var(--text3);font-size:16px">✕</button>
+          <button v-if="search" @click="search=''"><X :size="16" style="color:var(--text3)" /></button>
         </div>
 
         <!-- CAT FILTER PILLS -->
@@ -227,7 +366,7 @@ async function deleteTemplate(id: number) {
         </div>
 
         <div v-if="!filteredItems.length" class="empty-state">
-          <span class="empty-icon">📦</span>
+          <Package :size="48" style="opacity:0.2;margin-bottom:12px" />
           <p>Aucun équipement trouvé.</p>
         </div>
 
@@ -239,6 +378,11 @@ async function deleteTemplate(id: number) {
             <div class="equip-status-bar" :class="`bg-${item.status}`"></div>
 
             <!-- MAIN CONTENT -->
+            <div class="equip-thumb" @click="openEditModal(item)">
+              <img v-if="item.imageUrl" :src="item.imageUrl" alt="" loading="lazy" />
+              <Camera v-else :size="20" stroke-width="1.5" />
+            </div>
+
             <div class="equip-body" @click="openEditModal(item)">
               <div class="equip-name">{{ item.name }}</div>
               <div class="equip-meta">
@@ -252,17 +396,19 @@ async function deleteTemplate(id: number) {
                   v-for="(info, key) in STATUS_MAP"
                   :key="key"
                   class="equip-status-btn"
-                  :class="{ active: item.status === key, [`s-${key}`]: true }"
+                   :class="{ active: item.status === key, [`s-${key}`]: true }"
                   :title="info.label"
                   @click="setStatus(item, key as StatusType)"
-                >{{ info.icon }}</button>
+                >
+                  <component :is="getStatusIcon(info.icon)" :size="12" stroke-width="2.5" />
+                </button>
               </div>
             </div>
 
             <!-- EDIT BTN -->
             <div class="equip-actions">
-              <button class="equip-edit-btn" @click="openEditModal(item)">✏️</button>
-              <button class="equip-del-btn" @click="deleteItem(item.id)">🗑️</button>
+              <button class="equip-edit-btn" @click="openEditModal(item)"><Pencil :size="16" /></button>
+              <button class="equip-del-btn" @click="askDeleteItem(item.id)"><Trash2 :size="16" /></button>
             </div>
           </div>
         </template>
@@ -286,8 +432,8 @@ async function deleteTemplate(id: number) {
         <div v-for="cat in state.categories" :key="cat" class="cat-manage-card">
           <div v-if="editingCat === cat" class="cat-edit-row">
             <input v-model="editCatName" style="flex:1" @keyup.enter="saveEditCat" />
-            <button class="btn btn-primary btn-sm" @click="saveEditCat">✓</button>
-            <button class="btn btn-secondary btn-sm" @click="editingCat = null">✕</button>
+            <button class="btn btn-primary btn-sm" @click="saveEditCat"><Check :size="14" /></button>
+            <button class="btn btn-secondary btn-sm" @click="editingCat = null"><X :size="14" /></button>
           </div>
           <template v-else>
             <div class="cat-manage-info">
@@ -295,8 +441,8 @@ async function deleteTemplate(id: number) {
               <span class="cat-manage-count">{{ (state.items || []).filter(i => i.cat === cat).length }} items</span>
             </div>
             <div class="cat-manage-btns">
-              <button class="icon-btn" title="Renommer" @click="startEditCat(cat)">✏️</button>
-              <button class="icon-btn danger" title="Supprimer" @click="deleteCategory(cat)">🗑️</button>
+              <button class="icon-btn" title="Renommer" @click="startEditCat(cat)"><Pencil :size="16" /></button>
+              <button class="icon-btn danger" title="Supprimer" @click="deleteCategory(cat)"><Trash2 :size="16" /></button>
             </div>
           </template>
         </div>
@@ -308,12 +454,12 @@ async function deleteTemplate(id: number) {
         <div v-if="state.templates?.length" style="margin-bottom:20px">
           <div class="section-title">Mes templates ({{ state.templates.length }})</div>
           <div v-for="tpl in state.templates" :key="tpl.id" class="tpl-card">
-            <span class="tpl-icon">📋</span>
+            <ClipboardList :size="24" stroke-width="1.5" style="color:var(--text3)" />
             <div class="tpl-info">
               <div class="tpl-name">{{ tpl.name }}</div>
               <div class="tpl-count">{{ tpl.itemIds.length }} équipements</div>
             </div>
-            <button class="icon-btn danger" @click="deleteTemplate(tpl.id)">🗑️</button>
+            <button class="icon-btn danger" @click="deleteTemplate(tpl.id)"><Trash2 :size="18" /></button>
           </div>
         </div>
 
@@ -333,7 +479,7 @@ async function deleteTemplate(id: number) {
               @click="toggleTplItem(item.id)"
             >
               <div class="tpl-checkbox">
-                <span v-if="selectedIds.has(item.id)">✓</span>
+                <Check v-if="selectedIds.has(item.id)" :size="12" stroke-width="3" />
               </div>
               <span>{{ item.name }}</span>
               <span class="tpl-item-qty">×{{ item.qty }}</span>
@@ -351,7 +497,7 @@ async function deleteTemplate(id: number) {
     </div>
 
     <!-- FAB: ADD ITEM (only on items tab) -->
-    <button v-if="tab === 'items'" class="fab" @click="openAddModal">+</button>
+    <button v-if="tab === 'items'" class="fab" @click="openAddModal"><Plus :size="32" /></button>
 
     <!-- ═══ ADD / EDIT MODAL ═══ -->
     <Teleport to="body">
@@ -359,6 +505,21 @@ async function deleteTemplate(id: number) {
         <div class="modal-sheet">
           <div class="modal-handle"></div>
           <div class="modal-title">{{ editingItem ? '✏️ Modifier' : '➕ Ajouter' }} un équipement</div>
+
+          <!-- PHOTO UPLOAD -->
+          <div class="form-group">
+            <label>Photo</label>
+            <div class="photo-upload-zone" :class="{ 'has-image': imagePreview }" @click="$refs.fileInput.click()">
+              <div v-if="imagePreview" class="photo-preview-wrap">
+                <img :src="imagePreview" class="photo-preview" />
+                <button class="btn-remove-photo" @click.stop="removePreview"><X :size="14" /></button>
+              </div>
+              <div v-else class="photo-placeholder">
+                <Camera :size="24" stroke-width="1.5" />
+                <span>Ajouter une photo</span>
+              </div>
+            </div>
+          </div>
 
           <div class="form-group">
             <label>Nom *</label>
@@ -390,11 +551,11 @@ async function deleteTemplate(id: number) {
               <button
                 v-for="(info, key) in STATUS_MAP"
                 :key="key"
-                class="status-select-btn"
+                 class="status-select-btn"
                 :class="{ active: form.status === key, [`ss-${key}`]: true }"
                 @click="form.status = key as StatusType"
               >
-                <span class="ss-icon">{{ info.icon }}</span>
+                <component :is="getStatusIcon(info.icon)" :size="20" stroke-width="2.5" class="ss-icon" />
                 <span class="ss-label">{{ info.label }}</span>
               </button>
             </div>
@@ -405,11 +566,30 @@ async function deleteTemplate(id: number) {
             <button
               v-if="editingItem"
               class="btn btn-danger btn-sm"
-              @click="deleteItem(editingItem.id); showItemModal = false"
-            >🗑️</button>
-            <button class="btn btn-primary" style="flex:2" @click="saveItem">
-              {{ editingItem ? 'Modifier' : 'Ajouter' }}
+              @click="askDeleteItem(editingItem.id)"
+            ><Trash2 :size="18" /></button>
+            <button class="btn btn-primary" style="flex:2" :disabled="isUploading" @click="saveItem">
+              {{ isUploading ? 'Envoi...' : (editingItem ? 'Modifier' : 'Ajouter') }}
             </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- DELETE CONFIRM MODAL -->
+    <Teleport to="body">
+      <div v-if="showDeleteConfirm" class="modal-backdrop" @click.self="showDeleteConfirm = false">
+        <div class="modal-sheet confirm-sheet">
+          <div class="modal-handle"></div>
+          <div class="confirm-icon"><Trash2 :size="32" /></div>
+          <div class="modal-title">Supprimer cet item ?</div>
+          <p class="modal-desc">
+            Voulez-vous vraiment supprimer <strong>{{ props.state.items.find(i => i.id === itemToDelete)?.name }}</strong> ?
+            <br>Cette action est irréversible.
+          </p>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" style="flex:1" @click="showDeleteConfirm = false">Annuler</button>
+            <button class="btn btn-danger" style="flex:1" @click="confirmDeleteItem">Supprimer</button>
           </div>
         </div>
       </div>
@@ -426,6 +606,7 @@ async function deleteTemplate(id: number) {
   flex-shrink: 0;
 }
 .tab-bar button {
+  display: flex; align-items: center; gap: 6px;
   padding: 10px 12px; font-size: 12px; font-weight: 600;
   color: var(--text3); border-bottom: 2px solid transparent;
   transition: color 0.15s, border-color 0.15s;
@@ -483,6 +664,17 @@ async function deleteTemplate(id: number) {
 .status-border-repair { border-color: rgba(245,158,11,0.3); }
 .status-border-lent   { border-color: rgba(139,92,246,0.3); }
 .status-border-lost   { border-color: rgba(239,68,68,0.3); }
+
+.equip-thumb {
+  width: 54px; height: 54px; flex-shrink: 0;
+  background: var(--surface2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: var(--text3);
+  margin: 12px 0 12px 12px;
+  border-radius: 10px; overflow: hidden;
+  border: 0.5px solid var(--border2);
+}
+.equip-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
 .equip-status-bar {
   width: 4px; flex-shrink: 0;
@@ -580,6 +772,39 @@ async function deleteTemplate(id: number) {
 .icon-btn { font-size: 16px; padding: 6px; border-radius: var(--radius-sm); transition: background 0.15s; background: transparent; }
 .icon-btn:hover { background: var(--surface2); }
 .icon-btn.danger:hover { background: rgba(239,68,68,0.1); }
+
+/* ── PHOTO UPLOAD ── */
+.photo-upload-zone {
+  width: 100%; height: 120px;
+  background: var(--surface2);
+  border: 1.5px dashed var(--border2);
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden; cursor: pointer;
+  transition: all 0.2s;
+}
+.photo-upload-zone:hover { border-color: var(--accent); background: rgba(240,192,64,0.05); }
+.photo-upload-zone.has-image { border-style: solid; border-color: var(--border2); }
+.photo-preview-wrap { width: 100%; height: 100%; position: relative; }
+.photo-preview { width: 100%; height: 100%; object-fit: contain; }
+.photo-placeholder { display: flex; flex-direction: column; align-items: center; gap: 8px; color: var(--text3); font-size: 13px; font-weight: 500; }
+.btn-remove-photo {
+  position: absolute; top: 8px; right: 8px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(0,0,0,0.6); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; border: none; z-index: 2;
+}
+.btn-remove-photo:hover { background: #ef4444; }
+
+/* ── CONFIRM MODAL ── */
+.confirm-sheet { text-align: center; }
+.confirm-icon {
+  width: 64px; height: 64px; border-radius: 50%;
+  background: rgba(239,68,68,0.1); color: var(--danger);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+}
 
 /* ── TEMPLATES ── */
 .tpl-card {

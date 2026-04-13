@@ -2,6 +2,18 @@
 import { ref, computed, onMounted } from 'vue'
 import { useStore } from '../store'
 import type { UserData, Item, BorrowedItem } from '../types'
+import {
+  Package,
+  ChevronLeft,
+  Search,
+  X,
+  Check,
+  Minus,
+  Plus,
+  ExternalLink,
+  Trash2,
+  Save
+} from 'lucide-vue-next'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
@@ -198,6 +210,7 @@ async function openSave() {
       taken: i.takenDepart ?? 0,
       checked: !!i.checkedDepart,
       borrowedFrom: null,
+      imageUrl: i.imageUrl,
     })),
     ...borrowedItems.value.map(b => ({
       id: b._bid, name: b.name, cat: '', qty: b.qty,
@@ -239,7 +252,7 @@ async function openSave() {
       <div v-if="showLinkModal" class="modal-backdrop">
         <div class="modal-sheet">
           <div class="modal-handle"></div>
-          <div class="modal-title">📦 Retour</div>
+          <div class="modal-title"><Package :size="20" style="color:var(--accent);display:inline-block;vertical-align:middle;margin-right:8px" /> Retour</div>
           <div class="modal-desc">Associer à un départ existant ?</div>
 
           <div v-if="pendingDepartures.length">
@@ -271,9 +284,12 @@ async function openSave() {
     <template v-if="!showLinkModal">
       <!-- HEADER -->
       <div class="page-header">
-        <button class="back-btn" @click="emit('back')">←</button>
+        <button class="back-btn" @click="emit('back')"><ChevronLeft :size="20" /></button>
         <div style="flex:1">
-          <h1>📦 Retour</h1>
+          <div style="display:flex;align-items:center;gap:8px">
+            <Package :size="22" stroke-width="2.5" style="color:var(--accent)" />
+            <h1>Retour</h1>
+          </div>
           <div v-if="parentSession" style="font-size:11px; color:var(--accent);">↳ {{ parentSession.name }}</div>
         </div>
         <div class="progress-pill">{{ checkedCount }}/{{ total }}</div>
@@ -293,7 +309,7 @@ async function openSave() {
 
         <!-- DONE -->
         <div v-if="allDone" class="done-banner animate-in">
-          <div class="title">✅ Tout est rentré !</div>
+          <div class="title"><Check :size="18" style="display:inline-block;vertical-align:middle;margin-right:6px" /> Tout est rentré !</div>
           <div class="sub">Tout le matériel est vérifié. Appuie sur Sauvegarder !</div>
         </div>
 
@@ -309,16 +325,19 @@ async function openSave() {
               @click="toggleItem(item)"
             >
               <div class="check-circle">
-                <span v-if="item.checkedDepart" class="check-icon">✓</span>
-                <span v-else-if="(item.takenDepart ?? 0) > 0" class="partial-icon">~</span>
+                <Check v-if="item.checkedDepart" :size="10" stroke-width="3" />
+                <div v-else-if="(item.takenDepart ?? 0) > 0" class="partial-dot"></div>
+              </div>
+              <div v-if="item.imageUrl" class="item-mini-thumb">
+                <img :src="item.imageUrl" alt="" loading="lazy" />
               </div>
               <div class="item-info">
                 <div class="item-name-text">{{ item.name }}</div>
               </div>
               <div v-if="getMaxQty(item) > 1" class="qty-selector" @click.stop>
-                <button class="qty-btn" @click="changeQty(item, -1)">−</button>
+                <button class="qty-btn" @click="changeQty(item, -1)"><Minus :size="14" /></button>
                 <span class="qty-val">{{ item.takenDepart ?? 0 }}/{{ getMaxQty(item) }}</span>
-                <button class="qty-btn" @click="changeQty(item, 1)">+</button>
+                <button class="qty-btn" @click="changeQty(item, 1)"><Plus :size="14" /></button>
               </div>
               <span v-else class="item-qty-badge">×1</span>
             </div>
@@ -329,10 +348,11 @@ async function openSave() {
         <div class="divider"></div>
         <div style="display:flex; gap:8px; margin-bottom:10px">
           <button class="btn-add-matos" style="flex:1" @click="openAddModal">
-            📦 Ajouter du matos
+            <Package :size="14" style="display:inline-block;vertical-align:middle;margin-right:6px" /> Ajouter du matos
           </button>
           <button class="btn btn-secondary btn-sm" style="flex:1" @click="showBorrowPanel = !showBorrowPanel">
-            {{ showBorrowPanel ? '✕ Fermer' : '+ Emprunt externe' }}
+            <template v-if="showBorrowPanel"><X :size="14" style="margin-right:6px" /> Fermer</template>
+            <template v-else><Plus :size="14" style="margin-right:6px" /> Emprunt externe</template>
           </button>
         </div>
         <div v-if="showBorrowPanel" class="card animate-in" style="margin-bottom:12px">
@@ -346,13 +366,13 @@ async function openSave() {
         </div>
         <div v-for="b in borrowedItems" :key="b._bid" class="item-card" :class="b.checkedDepart ? 'checked' : ''">
           <div class="check-circle" @click="b.checkedDepart = !b.checkedDepart; b.takenDepart = b.checkedDepart ? b.qty : 0">
-            <span v-if="b.checkedDepart" class="check-icon">✓</span>
+            <Check v-if="b.checkedDepart" :size="10" stroke-width="3" />
           </div>
           <div class="item-info" @click="b.checkedDepart = !b.checkedDepart">
             <div class="item-name-text">{{ b.name }}</div>
-            <div v-if="b.borrowedFrom" class="item-sub">→ Rendre à {{ b.borrowedFrom }}</div>
+            <div v-if="b.borrowedFrom" class="item-sub"><ExternalLink :size="10" style="display:inline-block;vertical-align:middle;margin-right:4px" /> Rendre à {{ b.borrowedFrom }}</div>
           </div>
-          <button @click="removeBorrowed(b._bid)" style="color:var(--danger); font-size:18px; padding:4px">✕</button>
+          <button @click="removeBorrowed(b._bid)" style="color:var(--danger); padding:4px"><Trash2 :size="16" /></button>
         </div>
       </div>
 
@@ -377,9 +397,9 @@ async function openSave() {
         <div v-if="showAddModal" class="modal-backdrop" @click.self="showAddModal = false">
           <div class="modal-sheet" style="max-height:85dvh; overflow-y:auto">
             <div class="modal-handle"></div>
-            <div class="modal-title">📦 Ajouter du matos</div>
+            <div class="modal-title"><Package :size="20" style="color:var(--accent);display:inline-block;vertical-align:middle;margin-right:8px" /> Ajouter du matos</div>
             <div class="search-bar" style="margin-bottom:12px">
-              <span class="search-icon">🔍</span>
+              <Search :size="16" class="search-icon" />
               <input v-model="addSearch" placeholder="Rechercher…" />
             </div>
             <div v-if="!inventoryToAdd.length" style="text-align:center; color:var(--text3); font-size:13px; padding:16px 0">
@@ -391,11 +411,11 @@ async function openSave() {
                 <div class="add-item-cat">{{ item.cat }} · {{ item.qty }} en stock</div>
               </div>
               <div class="add-qty-row">
-                <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) - 1, item.qty)">−</button>
+                <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) - 1, item.qty)"><Minus :size="14" /></button>
                 <span class="qty-val" :class="{ 'qty-active': (addQtys[item.id] ?? 0) > 0 }">
                   {{ addQtys[item.id] ?? 0 }}/{{ item.qty }}
                 </span>
-                <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) + 1, item.qty)">+</button>
+                <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) + 1, item.qty)"><Plus :size="14" /></button>
               </div>
             </div>
             <div class="modal-actions" style="margin-top:16px">
@@ -426,7 +446,7 @@ async function openSave() {
   backdrop-filter: blur(20px);
   border-top: 0.5px solid var(--border2);
 }
-.partial-icon { font-size: 11px; color: var(--warn); font-weight: 900; }
+.partial-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 
 .btn-add-matos {
   padding: 10px; border-radius: var(--radius-sm);
@@ -445,4 +465,11 @@ async function openSave() {
 .add-item-cat  { font-size: 11px; color: var(--text3); margin-top: 2px; }
 .add-qty-row   { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .qty-active    { color: var(--accent); font-weight: 700; }
+.item-mini-thumb {
+  width: 38px; height: 38px; border-radius: 6px;
+  overflow: hidden; background: var(--surface2);
+  margin: 0 4px; flex-shrink: 0;
+  border: 0.5px solid var(--border2);
+}
+.item-mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
 </style>

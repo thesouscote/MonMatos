@@ -3,6 +3,13 @@ import { ref, computed, onMounted } from 'vue'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import { useStore } from './store'
+import {
+  House,
+  Clapperboard,
+  Package,
+  ClipboardList,
+  Settings2
+} from 'lucide-vue-next'
 
 import AuthPage from './pages/AuthPage.vue'
 import HomePage from './pages/HomePage.vue'
@@ -50,19 +57,19 @@ async function logout() {
   isLoggedIn.value = false
 }
 
-const navItems: { key: Page; icon: string; label: string }[] = [
-  { key: 'home',       icon: '🏠', label: 'Accueil' },
-  { key: 'checklist',  icon: '🎬', label: 'Départ' },
-  { key: 'retour',     icon: '📦', label: 'Retour' },
-  { key: 'historique', icon: '📋', label: 'Historique' },
-  { key: 'gestion',    icon: '⚙️', label: 'Gestion' },
-]
+const navItems = [
+  { key: 'home',       icon: House,         label: 'Accueil' },
+  { key: 'checklist',  icon: Clapperboard,  label: 'Départ' },
+  { key: 'retour',     icon: Package,       label: 'Retour' },
+  { key: 'historique', icon: ClipboardList, label: 'Historique' },
+  { key: 'gestion',    icon: Settings2,     label: 'Gestion' },
+] as const
 </script>
 
 <template>
   <!-- LOADER -->
   <div v-if="loading" class="loader">
-    <span class="loader-logo">🎬</span>
+    <Clapperboard :size="48" class="loader-logo" style="color: var(--accent)" />
   </div>
 
   <!-- AUTH -->
@@ -72,7 +79,10 @@ const navItems: { key: Page; icon: string; label: string }[] = [
   <template v-else>
     <!-- SIDEBAR (desktop only) -->
     <aside class="sidebar">
-      <div class="sidebar-logo">🎬 MonMatos</div>
+      <div class="sidebar-logo">
+        <Clapperboard :size="20" style="color: var(--accent)" />
+        <span>MonMatos</span>
+      </div>
 
       <button
         v-for="item in navItems"
@@ -81,7 +91,7 @@ const navItems: { key: Page; icon: string; label: string }[] = [
         :class="{ active: currentPage === item.key }"
         @click="navigate(item.key)"
       >
-        <span class="si-icon">{{ item.icon }}</span>
+        <component :is="item.icon" :size="18" class="si-icon" stroke-width="2" />
         {{ item.label }}
         <span v-if="item.key === 'retour' && pendingCount > 0" class="si-badge">{{ pendingCount }}</span>
       </button>

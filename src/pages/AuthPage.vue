@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { Clapperboard, Mail } from 'lucide-vue-next'
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -42,7 +43,7 @@ async function register() {
   try {
     const cred = await createUserWithEmailAndPassword(auth, email.value, password.value)
     await updateProfile(cred.user, { displayName: prenom.value })
-    emit('toast', `Bienvenue ${prenom.value} 🎬`)
+    emit('toast', `Bienvenue ${prenom.value} !`)
   } catch (e: any) {
     error.value = firebaseMsg(e.code)
   } finally {
@@ -85,7 +86,7 @@ function firebaseMsg(code: string) {
 <template>
   <div class="auth-root">
     <div class="auth-card">
-      <div class="auth-logo">🎬</div>
+      <div class="auth-logo"><Clapperboard :size="48" style="color:var(--accent)" /></div>
       <h1 class="auth-title">MonMatos</h1>
       <p class="auth-sub">Checklist de tournage professionnelle</p>
 
@@ -98,7 +99,10 @@ function firebaseMsg(code: string) {
 
       <!-- LOGIN -->
       <div v-if="tab === 'login'" class="auth-form">
-        <div v-if="resetSent" class="auth-success">📧 Email envoyé ! Vérifie ta boîte mail.</div>
+        <div v-if="resetSent" class="auth-success">
+          <Mail :size="16" style="margin-right:8px;vertical-align:middle" />
+          Email envoyé ! Vérifie ta boîte mail.
+        </div>
         <input v-model="email" type="email" placeholder="Email" @keyup.enter="login" />
         <input v-if="!showReset" v-model="password" type="password" placeholder="Mot de passe" @keyup.enter="login" />
         <button v-if="!showReset" class="btn btn-primary btn-full" :disabled="!canLogin || loading" @click="login">

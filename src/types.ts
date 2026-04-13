@@ -12,6 +12,7 @@ export interface Item {
   takenArrive?: number
   takenDepart?: number
   borrowedFrom?: string | null
+  imageUrl?: string
 }
 
 export interface SessionSnapshot {
@@ -22,6 +23,7 @@ export interface SessionSnapshot {
   taken: number
   checked: boolean
   borrowedFrom?: string | null
+  imageUrl?: string
 }
 
 export interface Session {
@@ -63,8 +65,8 @@ export type StatusType = Item['status']
 export type ItemStatusInfo = { label: string; color: string; icon: string }
 
 export const STATUS_MAP: Record<StatusType, ItemStatusInfo> = {
-  ok:     { label: 'OK',           color: 'var(--accent)',   icon: '✓' },
-  repair: { label: 'En réparation',color: 'var(--warn)',    icon: '🔧' },
-  lent:   { label: 'Prêté',        color: '#8b5cf6',        icon: '↗' },
-  lost:   { label: 'Perdu',        color: 'var(--danger)',  icon: '✗' },
+  ok:     { label: 'OK',           color: 'var(--accent)',   icon: 'check' },
+  repair: { label: 'En réparation',color: 'var(--warn)',    icon: 'wrench' },
+  lent:   { label: 'Prêté',        color: '#8b5cf6',        icon: 'arrow-up-right' },
+  lost:   { label: 'Perdu',        color: 'var(--danger)',  icon: 'x' },
 }
