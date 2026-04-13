@@ -94,9 +94,10 @@ async function saveItem() {
 }
 
 async function deleteItem(id: number) {
-  if (!confirm('Supprimer cet équipement ?')) return
-  props.state.items = props.state.items.filter(i => i.id !== id)
+  const idx = props.state.items.findIndex(i => i.id === id)
+  if (idx !== -1) props.state.items.splice(idx, 1)
   await save()
+  showItemModal.value = false
   emit('toast', 'Équipement supprimé')
 }
 
@@ -122,8 +123,10 @@ async function addCategory() {
 async function deleteCategory(name: string) {
   const count = (props.state.items || []).filter(i => i.cat === name).length
   if (count > 0) { emit('toast', `Supprime d'abord les ${count} items de cette catégorie`); return }
-  props.state.categories = props.state.categories.filter(c => c !== name)
+  const idx = props.state.categories.indexOf(name)
+  if (idx !== -1) props.state.categories.splice(idx, 1)
   await save()
+  emit('toast', 'Catégorie supprimée')
 }
 
 function startEditCat(name: string) { editingCat.value = name; editCatName.value = name }
@@ -164,8 +167,10 @@ async function saveTemplate() {
 }
 
 async function deleteTemplate(id: number) {
-  props.state.templates = props.state.templates.filter(t => t.id !== id)
+  const idx = (props.state.templates || []).findIndex(t => t.id === id)
+  if (idx !== -1) props.state.templates.splice(idx, 1)
   await save()
+  emit('toast', 'Template supprimé')
 }
 </script>
 

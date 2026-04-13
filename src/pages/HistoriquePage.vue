@@ -9,6 +9,7 @@ const { save } = useStore()
 
 const openSessions = ref<Set<number>>(new Set())
 const search = ref('')
+const confirmDeleteId = ref<number | null>(null)
 
 const filtered = computed(() =>
   (props.state.sessions || []).filter(s =>
@@ -38,8 +39,9 @@ function phaseLabel(s: any) {
 }
 
 async function deleteSession(id: number) {
-  if (!confirm('Supprimer cette session ?')) return
-  props.state.sessions = props.state.sessions.filter(s => s.id !== id)
+  confirmDeleteId.value = null
+  const idx = props.state.sessions.findIndex(s => s.id === id)
+  if (idx !== -1) props.state.sessions.splice(idx, 1)
   await save()
   emit('toast', 'Session supprimée')
 }
@@ -96,8 +98,13 @@ async function deleteSession(id: number) {
             </span>
           </div>
           <div class="divider"></div>
-          <button class="btn btn-danger btn-sm btn-full" style="margin-top:4px" @click="deleteSession(s.id)">
-            Supprimer cette session
+          <div v-if="confirmDeleteId === s.id" class="delete-confirm">
+            <span>Supprimer définitivement ?</span>
+            <button class="btn btn-danger btn-sm" @click="deleteSession(s.id)">Oui, supprimer</button>
+            <button class="btn btn-secondary btn-sm" @click="confirmDeleteId = null">Annuler</button>
+          </div>
+          <button v-else class="btn btn-danger btn-sm btn-full" style="margin-top:4px" @click="confirmDeleteId = s.id">
+            🗑️ Supprimer cette session
           </button>
         </div>
       </div>
