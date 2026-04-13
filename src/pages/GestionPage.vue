@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useStore } from '../store'
+import { useTransfers } from '../composables/useTransfers'
 import {
   Settings2,
   Package,
@@ -16,7 +17,8 @@ import {
   Wrench,
   ArrowUpRight,
   ChevronLeft,
-  Mail
+  Mail,
+  Send
 } from 'lucide-vue-next'
 import type { UserData, Item, StatusType, Template } from '../types'
 import { STATUS_MAP } from '../types'
@@ -24,6 +26,7 @@ import { STATUS_MAP } from '../types'
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
 const { save } = useStore()
+const { sendSessionToAccount } = useTransfers()
 
 // Helper to resolve status icon
 const getStatusIcon = (iconName: string) => {
@@ -162,6 +165,66 @@ async function confirmDeleteItem() {
 async function setStatus(item: Item, status: StatusType) {
   item.status = status
   await save()
+}
+
+// ─── TRANSFERT DIRECT ───
+const showTransferModal = ref(false)
+const itemToTransfer = ref<Item | null>(null)
+const transferForm = ref({
+  email: '',
+  qty: 1
+})
+const isTransferring = ref(false)
+
+function openTransferItem(item: Item) {
+  itemToTransfer.value = item
+  transferForm.value = {
+    email: '',
+    qty: item.qty // par défaut toute la quantité
+  }
+  showTransferModal.value = true
+}
+
+async function confirmTransferItem() {
+  if (!itemToTransfer.value) return
+  if (!transferForm.value.email.trim()) { emit('toast', 'Veuillez saisir un e-mail'); return }
+  
+  isTransferring.value = true
+  try {
+    const item = itemToTransfer.value
+    const transferQty = transferForm.value.qty || 1
+    
+    // On crée une fausse "Session" pour réutiliser la logique d'import/export
+    const fakeSession = {
+      id: Date.now(),
+      name: `Transfert reçu : ${item.name}`,
+      date: new Date().toISOString(),
+      phase: 'depart',
+      isReturned: true, // Terminé automatiquement
+      checked: 1,
+      total: 1,
+      comments: 'Transfert direct depuis la page Gestion',
+      snapshot: [{
+        id: item.id,
+        name: item.name,
+        cat: item.cat,
+        qty: transferQty,
+        taken: transferQty,
+        checked: true,
+        borrowedFrom: null,
+        imageUrl: item.imageUrl
+      }]
+    }
+    
+    await sendSessionToAccount(fakeSession as any, transferForm.value.email)
+    
+    emit('toast', 'Copie de l\'équipement transférée avec succès !')
+    showTransferModal.value = false
+  } catch (e: any) {
+    emit('toast', "Erreur lors de l'envoi : " + (e.message || "inconnue"))
+  } finally {
+    isTransferring.value = false
+  }
 }
 
 // ─── CATEGORIES ───
@@ -357,8 +420,9 @@ function exportInventoryEmail() {
 
             <!-- EDIT BTN -->
             <div class="equip-actions">
-              <button class="equip-edit-btn" @click="openEditModal(item)"><Pencil :size="16" /></button>
-              <button class="equip-del-btn" @click="askDeleteItem(item.id)"><Trash2 :size="16" /></button>
+              <button class="equip-edit-btn" title="Transférer" @click="openTransferItem(item)"><Send :size="16" /></button>
+              <button class="equip-edit-btn" style="border-top:0.5px solid var(--border)" title="Modifier" @click="openEditModal(item)"><Pencil :size="16" /></button>
+              <button class="equip-del-btn" style="border-top:0.5px solid var(--border)" title="Supprimer" @click="askDeleteItem(item.id)"><Trash2 :size="16" /></button>
             </div>
             </div>
           </div>
@@ -540,6 +604,42 @@ function exportInventoryEmail() {
           <div class="modal-actions">
             <button class="btn btn-secondary" style="flex:1" @click="showDeleteConfirm = false">Annuler</button>
             <button class="btn btn-danger" style="flex:1" @click="confirmDeleteItem">Supprimer</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
+    <!-- TRANSFER DIRECT MODAL -->
+    <Teleport to="body">
+      <div v-if="showTransferModal" class="modal-backdrop" @click.self="showTransferModal = false">
+        <div class="modal-sheet" style="max-height:85dvh">
+          <div class="modal-handle"></div>
+          <div class="modal-title"><Send :size="20" style="color:var(--accent);vertical-align:middle;margin-right:8px" /> Transférer vers un compte</div>
+          <div class="modal-desc" v-if="itemToTransfer">
+            Envoyer <strong>{{ itemToTransfer.name }}</strong> vers un autre compte MonMatos.
+          </div>
+
+          <div class="form-group" style="margin-top:20px">
+            <label>E-mail du compte destinataire *</label>
+            <div style="display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--radius-sm);padding:0 12px">
+              <Mail :size="16" style="color:var(--text3);margin-right:8px"/>
+              <input v-model="transferForm.email" type="email" placeholder="exemple@email.com" style="flex:1;border:none;background:transparent;padding:12px 0;width:100%" />
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-top:16px" v-if="itemToTransfer && itemToTransfer.qty > 1">
+            <label>Quantité à envoyer</label>
+            <input v-model.number="transferForm.qty" type="number" min="1" :max="itemToTransfer?.qty" style="width:100%" />
+            <div style="font-size:11px; color:var(--text3); margin-top:4px">
+              (La quantité sera configurée à l'identique chez le destinataire)
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top:24px;">
+            <button class="btn btn-secondary" style="flex:1" @click="showTransferModal = false">Annuler</button>
+            <button class="btn btn-primary" style="flex:2" :disabled="isTransferring" @click="confirmTransferItem">
+               {{ isTransferring ? 'Envoi...' : 'Envoyer la copie' }}
+            </button>
           </div>
         </div>
       </div>
