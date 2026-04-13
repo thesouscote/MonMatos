@@ -1715,14 +1715,18 @@
       
       let displayItems = [];
       if (parentSession && parentSession.snapshot) {
-          const parentSnaps = parentSession.snapshot.filter(s => s.taken > 0);
+          const parentSnaps = parentSession.snapshot.filter(s => {
+              const t = s.taken !== undefined ? s.taken : (s.checked ? s.qty : 0);
+              return t > 0;
+          });
           parentSnaps.forEach(snap => {
+              const snapTaken = snap.taken !== undefined ? snap.taken : (snap.checked ? snap.qty : 0);
               const originalItem = items.find(i => i.id === snap.id);
               if (originalItem) {
-                  displayItems.push({ ...originalItem, qty: snap.taken });
+                  displayItems.push({ ...originalItem, qty: snapTaken });
               } else {
                   const byName = items.find(i => i.name === snap.name);
-                  if (byName) displayItems.push({ ...byName, qty: snap.taken });
+                  if (byName) displayItems.push({ ...byName, qty: snapTaken });
               }
           });
       } else {
@@ -1808,7 +1812,7 @@
           const parentSession = userData.sessions.find(s => s.id === activeParentSessionId);
           if (parentSession) {
               const snap = parentSession.snapshot.find(s => s.id === id || s.name === item.name);
-              if (snap) maxQty = snap.taken;
+              if (snap) maxQty = snap.taken !== undefined ? snap.taken : (snap.checked ? snap.qty : 0);
           }
       }
 
@@ -1838,7 +1842,7 @@
           const parentSession = userData.sessions.find(s => s.id === activeParentSessionId);
           if (parentSession) {
               const snap = parentSession.snapshot.find(s => s.id === id || s.name === item.name);
-              if (snap) maxQty = snap.taken;
+              if (snap) maxQty = snap.taken !== undefined ? snap.taken : (snap.checked ? snap.qty : 0);
           }
       }
 
@@ -1918,7 +1922,10 @@
           if (activeParentSessionId) {
               const p = userData.sessions.find(s => s.id === activeParentSessionId);
               if (p && p.snapshot) {
-                  const snapItems = p.snapshot.filter(s => s.taken > 0);
+                  const snapItems = p.snapshot.filter(s => {
+                      const t = s.taken !== undefined ? s.taken : (s.checked ? s.qty : 0);
+                      return t > 0;
+                  });
                   targetItems = [...borrowedItems];
                   snapItems.forEach(snap => {
                       const orig = userData.items.find(i => i.id === snap.id || i.name === snap.name);
@@ -1950,11 +1957,15 @@
           if (activeParentSessionId) {
               const p = userData.sessions.find(s => s.id === activeParentSessionId);
               if (p && p.snapshot) {
-                  const snapItems = p.snapshot.filter(s => s.taken > 0);
+                  const snapItems = p.snapshot.filter(s => {
+                      const t = s.taken !== undefined ? s.taken : (s.checked ? s.qty : 0);
+                      return t > 0;
+                  });
                   const newTargetList = [];
                   snapItems.forEach(snap => {
+                      const snapTaken = snap.taken !== undefined ? snap.taken : (snap.checked ? snap.qty : 0);
                       const orig = userData.items.find(i => i.id === snap.id || i.name === snap.name);
-                      if (orig) newTargetList.push({ ...orig, qty: snap.taken });
+                      if (orig) newTargetList.push({ ...orig, qty: snapTaken });
                   });
                   targetItems = [...newTargetList, ...borrowedItems];
               }
