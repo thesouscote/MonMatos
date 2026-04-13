@@ -26,10 +26,12 @@ const cats = computed(() => props.state.categories || [])
 const filteredByCat = (cat: string) =>
   sessionItems.value.filter(i => i.cat === cat && i.name.toLowerCase().includes(search.value.toLowerCase()))
 
+const totalQty  = computed(() => sessionItems.value.reduce((s, i) => s + i.qty, 0))
+const takenQty  = computed(() => sessionItems.value.reduce((s, i) => s + (i.takenArrive ?? 0), 0))
 const checkedCount = computed(() => sessionItems.value.filter(i => (i.takenArrive ?? 0) > 0).length)
-const total = computed(() => sessionItems.value.length)
-const pct = computed(() => total.value ? Math.round((checkedCount.value / total.value) * 100) : 0)
-const allDone = computed(() => total.value > 0 && sessionItems.value.every(i => (i.takenArrive ?? 0) > 0))
+const total     = computed(() => sessionItems.value.length)
+const pct       = computed(() => totalQty.value ? Math.round((takenQty.value / totalQty.value) * 100) : 0)
+const allDone   = computed(() => totalQty.value > 0 && takenQty.value === totalQty.value)
 
 function toggleItem(item: Item) {
   if ((item.takenArrive ?? 0) === 0) {
@@ -106,7 +108,7 @@ function resetAll() {
     <div class="page-header">
       <button class="back-btn" @click="emit('back')">←</button>
       <h1>🎬 Départ</h1>
-      <div class="progress-pill">{{ checkedCount }}/{{ total }}</div>
+      <div class="progress-pill">{{ takenQty }}/{{ totalQty }}</div>
     </div>
 
     <!-- PROGRESS -->
