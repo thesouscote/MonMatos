@@ -88,13 +88,11 @@ function getMaxQty(item: Item): number {
 
 function toggleItem(item: Item) {
   const max = getMaxQty(item)
-  if ((item.takenDepart ?? 0) === 0) {
-    item.takenDepart = max
-    item.checkedDepart = true
-  } else {
-    item.takenDepart = 0
-    item.checkedDepart = false
-  }
+  const cur = item.takenDepart ?? 0
+  // Cycle: 0 → 1 → 2 → … → max → 0
+  const next = cur >= max ? 0 : cur + 1
+  item.takenDepart = next
+  item.checkedDepart = next === max
 }
 
 function changeQty(item: Item, delta: number) {
@@ -110,6 +108,46 @@ function checkClass(item: Item) {
   if (t === max) return 'checked'
   if (t > 0) return 'partial'
   return ''
+}
+
+// ─── ADD MATOS FROM INVENTORY ───
+const showAddModal = ref(false)
+const addSearch = ref('')
+const addQtys = ref<Record<number, number>>({})
+
+const alreadyInSession = computed(() => new Set(sessionItems.value.map(i => i.id)))
+
+const inventoryToAdd = computed(() =>
+  (props.state.items || []).filter(i =>
+    !alreadyInSession.value.has(i.id) &&
+    i.name.toLowerCase().includes(addSearch.value.toLowerCase())
+  )
+)
+
+function openAddModal() {
+  addSearch.value = ''
+  addQtys.value = {}
+  showAddModal.value = true
+}
+
+function setAddQty(itemId: number, val: number, max: number) {
+  addQtys.value[itemId] = Math.max(0, Math.min(max, val))
+}
+
+function confirmAddMatos() {
+  const added = Object.entries(addQtys.value)
+    .filter(([, qty]) => qty > 0)
+    .map(([id, qty]) => {
+      const item = (props.state.items || []).find(i => i.id === Number(id))
+      if (!item) return null
+      return { ...item, qty: Number(qty), checkedDepart: false, takenDepart: 0 }
+    })
+    .filter(Boolean) as Item[]
+
+  if (!added.length) { emit('toast', 'Sélectionne au moins un item'); return }
+  sessionItems.value.push(...added)
+  showAddModal.value = false
+  emit('toast', `${added.length} item${added.length > 1 ? 's' : ''} ajouté${added.length > 1 ? 's' : ''} !`)
 }
 
 // BORROWED
@@ -136,21 +174,23 @@ function removeBorrowed(bid: number) {
   borrowedItems.value = borrowedItems.value.filter(b => b._bid !== bid)
 }
 
-// SAVE
-const showSaveModal = ref(false)
-const sessionName = ref('')
+// SAVE — direct, no modal
 const saving = ref(false)
 
-function openSave() {
+async function openSave() {
   if (checkedCount.value === 0) { emit('toast', 'Coche au moins un item !'); return }
-  const d = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
-  sessionName.value = `${d} – Retour`
-  showSaveModal.value = true
-}
-
-async function confirmSave() {
+  if (!allDone.value) {
+    const missing = totalQty.value - takenQty.value
+    emit('toast', `⚠️ ${missing} unité${missing > 1 ? 's' : ''} manquante${missing > 1 ? 's' : ''} — vérifie tout le matos !`)
+    return
+  }
+  if (saving.value) return
   saving.value = true
-  const name = sessionName.value.trim() || 'Retour sans nom'
+
+  const d = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
+  const name = parentSession.value
+    ? `${parentSession.value.name} — Retour`
+    : `${d} – Retour`
 
   const allSnap = [
     ...sessionItems.value.map(i => ({
@@ -179,7 +219,7 @@ async function confirmSave() {
 
   props.state.sessions.unshift(session)
 
-  // Mark parent as returned
+  // Marquer le départ parent comme retourné
   if (activeParentId.value) {
     const parent = props.state.sessions.find(s => s.id === activeParentId.value)
     if (parent) parent.isReturned = true
@@ -187,8 +227,7 @@ async function confirmSave() {
 
   await save()
   saving.value = false
-  showSaveModal.value = false
-  emit('toast', `"${name}" sauvegardé !`)
+  emit('toast', `✅ ${name} sauvegardé !`)
   emit('back')
 }
 </script>
@@ -286,11 +325,16 @@ async function confirmSave() {
           </template>
         </template>
 
-        <!-- BORROWED -->
+        <!-- ACTIONS: AJOUTER MATOS + EMPRUNT -->
         <div class="divider"></div>
-        <button class="btn btn-secondary btn-full" style="margin-bottom:10px" @click="showBorrowPanel = !showBorrowPanel">
-          {{ showBorrowPanel ? '✕ Fermer' : '+ Ajouter un emprunt' }}
-        </button>
+        <div style="display:flex; gap:8px; margin-bottom:10px">
+          <button class="btn-add-matos" style="flex:1" @click="openAddModal">
+            📦 Ajouter du matos
+          </button>
+          <button class="btn btn-secondary btn-sm" style="flex:1" @click="showBorrowPanel = !showBorrowPanel">
+            {{ showBorrowPanel ? '✕ Fermer' : '+ Emprunt externe' }}
+          </button>
+        </div>
         <div v-if="showBorrowPanel" class="card animate-in" style="margin-bottom:12px">
           <input v-model="borrowName" placeholder="Nom de l'équipement" style="margin-bottom:8px" />
           <input v-model="borrowFrom" placeholder="Rendu à qui ?" style="margin-bottom:8px" />
@@ -317,21 +361,47 @@ async function confirmSave() {
         <button class="btn btn-secondary btn-sm" @click="sessionItems.forEach(i => { i.checkedDepart = false; i.takenDepart = 0 })">
           Réinit.
         </button>
-        <button class="btn btn-primary" @click="openSave">Sauvegarder</button>
+        <button
+          class="btn btn-primary"
+          :class="{ 'btn-blocked': !allDone }"
+          :style="!allDone ? 'opacity:0.5; cursor:not-allowed' : ''"
+          @click="openSave"
+        >
+          {{ allDone ? 'Sauvegarder' : `⚠️ ${totalQty - takenQty} manquant${(totalQty - takenQty) > 1 ? 's' : ''}` }}
+        </button>
       </div>
 
-      <!-- SAVE MODAL -->
+
+      <!-- ADD MATOS MODAL -->
       <Teleport to="body">
-        <div v-if="showSaveModal" class="modal-backdrop" @click.self="showSaveModal = false">
-          <div class="modal-sheet">
+        <div v-if="showAddModal" class="modal-backdrop" @click.self="showAddModal = false">
+          <div class="modal-sheet" style="max-height:85dvh; overflow-y:auto">
             <div class="modal-handle"></div>
-            <div class="modal-title">💾 Sauver le retour</div>
-            <div class="modal-desc">{{ checkedCount }} équipements cochés</div>
-            <input v-model="sessionName" placeholder="Nom du retour" style="margin-bottom:16px" />
-            <div class="modal-actions">
-              <button class="btn btn-secondary" style="flex:1" @click="showSaveModal = false">Annuler</button>
-              <button class="btn btn-primary" style="flex:2" :disabled="saving" @click="confirmSave">
-                {{ saving ? 'Sauvegarde…' : 'Confirmer' }}
+            <div class="modal-title">📦 Ajouter du matos</div>
+            <div class="search-bar" style="margin-bottom:12px">
+              <span class="search-icon">🔍</span>
+              <input v-model="addSearch" placeholder="Rechercher…" />
+            </div>
+            <div v-if="!inventoryToAdd.length" style="text-align:center; color:var(--text3); font-size:13px; padding:16px 0">
+              Tout le stock est déjà dans cette session.
+            </div>
+            <div v-for="item in inventoryToAdd" :key="item.id" class="add-item-row">
+              <div class="add-item-info">
+                <div class="add-item-name">{{ item.name }}</div>
+                <div class="add-item-cat">{{ item.cat }} · {{ item.qty }} en stock</div>
+              </div>
+              <div class="add-qty-row">
+                <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) - 1, item.qty)">−</button>
+                <span class="qty-val" :class="{ 'qty-active': (addQtys[item.id] ?? 0) > 0 }">
+                  {{ addQtys[item.id] ?? 0 }}/{{ item.qty }}
+                </span>
+                <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) + 1, item.qty)">+</button>
+              </div>
+            </div>
+            <div class="modal-actions" style="margin-top:16px">
+              <button class="btn btn-secondary" style="flex:1" @click="showAddModal = false">Annuler</button>
+              <button class="btn btn-primary" style="flex:2" @click="confirmAddMatos">
+                Ajouter ({{ Object.values(addQtys).filter(q => q > 0).length }})
               </button>
             </div>
           </div>
@@ -357,4 +427,22 @@ async function confirmSave() {
   border-top: 0.5px solid var(--border2);
 }
 .partial-icon { font-size: 11px; color: var(--warn); font-weight: 900; }
+
+.btn-add-matos {
+  padding: 10px; border-radius: var(--radius-sm);
+  background: rgba(240,192,64,0.08); border: 0.5px dashed rgba(240,192,64,0.3);
+  color: var(--accent); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s;
+}
+.btn-add-matos:hover { background: rgba(240,192,64,0.14); }
+
+.add-item-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 0; border-bottom: 0.5px solid var(--border);
+}
+.add-item-info { flex: 1; min-width: 0; }
+.add-item-name { font-size: 13px; font-weight: 600; }
+.add-item-cat  { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.add-qty-row   { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.qty-active    { color: var(--accent); font-weight: 700; }
 </style>

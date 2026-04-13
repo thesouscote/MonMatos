@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useStore } from '../store'
 import type { UserData, Item } from '../types'
 import { getAvailableQty } from '../composables/useStock'
@@ -44,14 +44,38 @@ const hasAnyStock  = computed(() => sessionItems.value.some(i => i.availableQty 
 
 function toggleItem(item: Item & { availableQty: number }) {
   if (item.availableQty === 0) return
-  if ((item.takenArrive ?? 0) === 0) {
-    item.takenArrive = item.availableQty
-    item.checkedArrive = true
-  } else {
-    item.takenArrive = 0
-    item.checkedArrive = false
+  const cur = item.takenArrive ?? 0
+  const max = item.availableQty
+  // Cycle: 0 → 1 → 2 → … → max → 0
+  const next = cur >= max ? 0 : cur + 1
+  item.takenArrive = next
+  item.checkedArrive = next === max
+}
+
+// ✅ Check all items in a category at once
+function checkAllInCat(cat: string) {
+  const items = filteredByCat(cat)
+  const allChecked = items.every(i => (i.takenArrive ?? 0) === i.availableQty && i.availableQty > 0)
+  items.forEach(item => {
+    if (item.availableQty === 0) return
+    if (allChecked) {
+      item.takenArrive = 0; item.checkedArrive = false
+    } else {
+      item.takenArrive = item.availableQty; item.checkedArrive = true
+    }
+  })
+}
+
+// ⌨️ Keyboard: Space = toggle next unchecked item
+function onKeyDown(e: KeyboardEvent) {
+  if (e.code === 'Space' && !(e.target instanceof HTMLInputElement)) {
+    e.preventDefault()
+    const next = sessionItems.value.find(i => (i.takenArrive ?? 0) === 0 && i.availableQty > 0)
+    if (next) toggleItem(next)
   }
 }
+onMounted(() => window.addEventListener('keydown', onKeyDown))
+onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 
 function changeQty(item: Item & { availableQty: number }, delta: number) {
   if (item.availableQty === 0) return
@@ -154,7 +178,12 @@ function resetAll() {
       <!-- ITEMS BY CAT -->
       <template v-for="cat in cats" :key="cat">
         <template v-if="filteredByCat(cat).length">
-          <div class="cat-label">{{ cat }}</div>
+          <div class="cat-label">
+            <span>{{ cat }}</span>
+            <button class="cat-check-all" @click="checkAllInCat(cat)">
+              {{ filteredByCat(cat).every(i => (i.takenArrive ?? 0) > 0 && i.availableQty > 0) ? 'Tout décocher' : 'Tout cocher' }}
+            </button>
+          </div>
           <div
             v-for="item in filteredByCat(cat)"
             :key="item.id"
@@ -171,7 +200,11 @@ function resetAll() {
               <span v-else-if="(item.takenArrive ?? 0) > 0" class="partial-icon">~</span>
             </div>
 
-            <div class="item-info">
+            <div
+              class="item-info"
+              :style="item.availableQty === 0 ? 'cursor:not-allowed' : 'cursor:pointer'"
+              @click="toggleItem(item)"
+            >
               <div class="item-name-text" :style="item.availableQty === 0 ? 'opacity:0.45' : ''">
                 {{ item.name }}
               </div>

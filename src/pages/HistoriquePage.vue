@@ -10,11 +10,113 @@ const { save } = useStore()
 const openSessions = ref<Set<number>>(new Set())
 const search = ref('')
 const confirmDeleteId = ref<number | null>(null)
+const filterTab = ref<'all' | 'active' | 'done'>('all')
 
-const filtered = computed(() =>
-  (props.state.sessions || []).filter(s =>
+// ─── ADD MATOS MODAL ───
+const addMatosSessionId = ref<number | null>(null)
+const addSearch = ref('')
+const addQtys = ref<Record<number, number>>({})
+
+const targetSession = computed(() =>
+  props.state.sessions.find(s => s.id === addMatosSessionId.value) ?? null
+)
+
+const availableToAdd = computed(() => {
+  if (!targetSession.value) return []
+  const inSnap = new Set(targetSession.value.snapshot.map(s => s.id))
+  return (props.state.items || []).filter(i =>
+    !inSnap.has(i.id) &&
+    i.name.toLowerCase().includes(addSearch.value.toLowerCase())
+  )
+})
+
+function openAddModal(sessionId: number) {
+  addMatosSessionId.value = sessionId
+  addSearch.value = ''
+  addQtys.value = {}
+}
+
+function setAddQty(itemId: number, val: number, max: number) {
+  addQtys.value[itemId] = Math.max(0, Math.min(max, val))
+}
+
+async function confirmAdd() {
+  const sess = targetSession.value
+  if (!sess) return
+  const toAdd = Object.entries(addQtys.value)
+    .filter(([, qty]) => qty > 0)
+    .map(([id, qty]) => {
+      const item = (props.state.items || []).find(i => i.id === Number(id))
+      if (!item) return null
+      return { id: item.id, name: item.name, cat: item.cat, qty: item.qty, taken: qty, checked: qty === item.qty, borrowedFrom: null }
+    })
+    .filter(Boolean) as typeof sess.snapshot
+
+  if (!toAdd.length) { emit('toast', 'Sélectionne au moins un item'); return }
+  sess.snapshot = [...sess.snapshot, ...toAdd]
+  sess.total = sess.snapshot.length
+  sess.checked = sess.snapshot.filter(s => s.checked).length
+  await save()
+  emit('toast', `${toAdd.length} item${toAdd.length > 1 ? 's' : ''} ajouté${toAdd.length > 1 ? 's' : ''} !`)
+  addMatosSessionId.value = null
+}
+
+// ─── EDIT SNAPSHOT ───
+async function updateSnapQty(sess: any, snapIdx: number, delta: number) {
+  const snap = sess.snapshot[snapIdx]
+  const newTaken = Math.max(0, Math.min(snap.qty, snap.taken + delta))
+  snap.taken = newTaken
+  snap.checked = newTaken === snap.qty
+  sess.checked = sess.snapshot.filter((s: any) => s.checked).length
+  await save()
+}
+
+async function removeSnapItem(sess: any, snapIdx: number) {
+  sess.snapshot.splice(snapIdx, 1)
+  sess.total = sess.snapshot.length
+  sess.checked = sess.snapshot.filter((s: any) => s.checked).length
+  await save()
+  emit('toast', 'Item retiré')
+}
+
+// ─── DURATION ───
+function daysSince(iso: string): number {
+  return Math.floor((Date.now() - new Date(iso).getTime()) / 86400000)
+}
+
+function durationLabel(days: number): string {
+  if (days === 0) return "Aujourd'hui"
+  if (days === 1) return '1 jour'
+  return `${days} jours`
+}
+
+// ─── COPY SUMMARY ───
+function copySummary(s: any) {
+  const lines = [
+    `📋 ${s.name}`,
+    `📅 ${formatDate(s.date)}`,
+    `${phaseLabel(s)}`,
+    '',
+    ...(s.snapshot || []).map((i: any) =>
+      `${i.taken > 0 ? '✅' : '❌'} ${i.name} (${i.taken}/${i.qty})`
+    )
+  ]
+  navigator.clipboard.writeText(lines.join('\n'))
+  emit('toast', 'Résumé copié !')
+}
+
+// ─── CORE ───
+const filtered = computed(() => {
+  let list = (props.state.sessions || []).filter(s =>
     s.name.toLowerCase().includes(search.value.toLowerCase())
   )
+  if (filterTab.value === 'active') list = list.filter(s => s.phase === 'arrive' && !s.isReturned)
+  if (filterTab.value === 'done')   list = list.filter(s => s.phase === 'depart' || s.isReturned)
+  return list
+})
+
+const activeSessions = computed(() =>
+  (props.state.sessions || []).filter(s => s.phase === 'arrive' && !s.isReturned)
 )
 
 function toggle(id: number) {
@@ -52,6 +154,9 @@ async function deleteSession(id: number) {
     <div class="page-header">
       <button class="back-btn" @click="emit('back')">←</button>
       <h1>📋 Historique</h1>
+      <div class="progress-pill" v-if="activeSessions.length">
+        🔴 {{ activeSessions.length }} en cours
+      </div>
     </div>
 
     <div class="page-content">
@@ -62,52 +167,163 @@ async function deleteSession(id: number) {
         <button v-if="search" @click="search = ''" style="color:var(--text3);font-size:16px">✕</button>
       </div>
 
+      <!-- FILTER TABS -->
+      <div class="filter-tabs">
+        <button class="filter-tab" :class="{ active: filterTab === 'all' }" @click="filterTab = 'all'">
+          Toutes ({{ (state.sessions || []).length }})
+        </button>
+        <button class="filter-tab" :class="{ active: filterTab === 'active' }" @click="filterTab = 'active'">
+          🔴 En cours ({{ activeSessions.length }})
+        </button>
+        <button class="filter-tab" :class="{ active: filterTab === 'done' }" @click="filterTab = 'done'">
+          ✅ Clôturées
+        </button>
+      </div>
+
       <div v-if="!filtered.length" class="empty-state">
         <span class="empty-icon">📋</span>
         <p>Aucune session trouvée.</p>
       </div>
 
       <div v-for="s in filtered" :key="s.id" class="hist-session">
+        <!-- HEADER ROW -->
         <div class="hist-header" @click="toggle(s.id)">
-          <div>
+          <div style="flex:1; min-width:0">
             <div class="hist-title">{{ s.name }}</div>
-            <div class="hist-date">{{ formatDate(s.date) }} · {{ phaseLabel(s) }}</div>
+            <div class="hist-date">{{ formatDate(s.date) }}</div>
           </div>
-          <div style="display:flex; align-items:center; gap:8px">
+          <div style="display:flex; align-items:center; gap:6px; flex-shrink:0">
+            <!-- Duration badge for active departures -->
+            <span
+              v-if="s.phase === 'arrive' && !s.isReturned && daysSince(s.date) > 0"
+              class="duration-badge"
+            >⏱ {{ durationLabel(daysSince(s.date)) }}</span>
             <span class="badge" :class="pct(s) === 100 ? 'badge-ok' : 'badge-partial'">
-              {{ pct(s) === 100 ? 'Complet' : `${s.checked}/${s.total}` }}
+              {{ phaseLabel(s) }}
             </span>
             <span style="color:var(--text3); font-size:12px">{{ openSessions.has(s.id) ? '▲' : '▼' }}</span>
           </div>
         </div>
 
+        <!-- EXPANDED BODY -->
         <div class="hist-body" :class="{ open: openSessions.has(s.id) }">
-          <div class="hist-phase-label">
-            {{ s.phase === 'depart' ? 'Équipements du retour' : 'Équipements du départ' }}
+          <div class="hist-phase-label" style="display:flex;align-items:center;justify-content:space-between">
+            <span>{{ s.phase === 'depart' ? 'Équipements retournés' : 'Équipements emportés' }}</span>
+            <button class="cat-check-all" @click="copySummary(s)">📋 Copier</button>
           </div>
-          <div v-for="item in (s.snapshot || [])" :key="item.id" class="hist-item">
-            <div class="dot" :class="item.checked ? 'dot-ok' : (item.taken > 0 && item.taken < item.qty ? 'dot-warn' : 'dot-ko')"></div>
-            <span>
+
+          <!-- SNAPSHOT ITEMS (editable) -->
+          <div v-for="(item, idx) in (s.snapshot || [])" :key="item.id" class="hist-item-row">
+            <div class="dot" :class="item.checked ? 'dot-ok' : (item.taken > 0 ? 'dot-warn' : 'dot-ko')"></div>
+            <span class="hist-item-name">
               {{ item.name }}
-              <span v-if="item.qty > 1" style="color:var(--text3); font-size:11px">
-                ({{ item.taken ?? (item.checked ? item.qty : 0) }}/{{ item.qty }})
-              </span>
-              <span v-if="item.borrowedFrom" style="color:var(--warn); font-size:11px">
-                – rendu à {{ item.borrowedFrom }}
-              </span>
+              <span v-if="item.borrowedFrom" style="color:var(--warn);font-size:11px"> – {{ item.borrowedFrom }}</span>
             </span>
+            <div class="snap-qty" @click.stop>
+              <button class="snap-btn" @click="updateSnapQty(s, idx, -1)">−</button>
+              <span>{{ item.taken }}/{{ item.qty }}</span>
+              <button class="snap-btn" @click="updateSnapQty(s, idx, 1)">+</button>
+              <button class="snap-del" @click="removeSnapItem(s, idx)">✕</button>
+            </div>
           </div>
+
           <div class="divider"></div>
+
+          <!-- ADD MATOS button -->
+          <button class="btn-add-matos" @click="openAddModal(s.id)">
+            + Ajouter du matos à cette session
+          </button>
+
+          <!-- DELETE -->
           <div v-if="confirmDeleteId === s.id" class="delete-confirm">
             <span>Supprimer définitivement ?</span>
-            <button class="btn btn-danger btn-sm" @click="deleteSession(s.id)">Oui, supprimer</button>
+            <button class="btn btn-danger btn-sm" @click="deleteSession(s.id)">Oui</button>
             <button class="btn btn-secondary btn-sm" @click="confirmDeleteId = null">Annuler</button>
           </div>
-          <button v-else class="btn btn-danger btn-sm btn-full" style="margin-top:4px" @click="confirmDeleteId = s.id">
+          <button v-else class="btn btn-danger btn-sm btn-full" style="margin-top:6px" @click="confirmDeleteId = s.id">
             🗑️ Supprimer cette session
           </button>
         </div>
       </div>
     </div>
+
+    <!-- ═══ ADD MATOS MODAL ═══ -->
+    <Teleport to="body">
+      <div v-if="addMatosSessionId !== null" class="modal-backdrop" @click.self="addMatosSessionId = null">
+        <div class="modal-sheet" style="max-height:85dvh">
+          <div class="modal-handle"></div>
+          <div class="modal-title">➕ Ajouter du matos</div>
+          <div class="modal-desc">{{ targetSession?.name }}</div>
+
+          <div class="search-bar" style="margin-bottom:12px">
+            <span class="search-icon">🔍</span>
+            <input v-model="addSearch" placeholder="Rechercher un équipement…" />
+          </div>
+
+          <div v-if="!availableToAdd.length" style="text-align:center; color:var(--text3); font-size:13px; padding:20px 0">
+            Tous tes équipements sont déjà dans cette session.
+          </div>
+
+          <div v-for="item in availableToAdd" :key="item.id" class="add-item-row">
+            <div class="add-item-info">
+              <div class="add-item-name">{{ item.name }}</div>
+              <div class="add-item-cat">{{ item.cat }}</div>
+            </div>
+            <div class="add-qty-row">
+              <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) - 1, item.qty)">−</button>
+              <span class="qty-val" :class="{ 'qty-active': (addQtys[item.id] ?? 0) > 0 }">
+                {{ addQtys[item.id] ?? 0 }}/{{ item.qty }}
+              </span>
+              <button class="qty-btn" @click="setAddQty(item.id, (addQtys[item.id] ?? 0) + 1, item.qty)">+</button>
+            </div>
+          </div>
+
+          <div class="modal-actions" style="margin-top:16px">
+            <button class="btn btn-secondary" style="flex:1" @click="addMatosSessionId = null">Annuler</button>
+            <button class="btn btn-primary" style="flex:2" @click="confirmAdd">
+              Ajouter ({{ Object.values(addQtys).filter(q => q > 0).length }} items)
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
+
+<style scoped>
+.progress-pill {
+  background: rgba(239,68,68,0.12); color: var(--danger);
+  border: 0.5px solid rgba(239,68,68,0.2);
+  border-radius: 99px; padding: 4px 12px;
+  font-size: 11px; font-weight: 700;
+}
+.hist-item-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 0.5px solid var(--border);
+}
+.hist-item-name { flex: 1; font-size: 13px; }
+.snap-qty { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.snap-btn {
+  width: 22px; height: 22px; border-radius: 50%;
+  background: var(--surface2); border: 0.5px solid var(--border2);
+  font-size: 13px; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+}
+.snap-btn:hover { background: var(--border2); }
+.snap-qty span { font-size: 11px; color: var(--text2); min-width: 32px; text-align: center; }
+.snap-del { color: var(--text3); font-size: 13px; padding: 2px 4px; background: transparent; }
+.snap-del:hover { color: var(--danger); }
+.btn-add-matos {
+  width: 100%; padding: 10px; border-radius: var(--radius-sm);
+  background: rgba(240,192,64,0.08); border: 0.5px dashed rgba(240,192,64,0.3);
+  color: var(--accent); font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: background 0.15s; margin-bottom: 8px;
+}
+.btn-add-matos:hover { background: rgba(240,192,64,0.14); }
+.add-item-row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+.add-item-info { flex: 1; min-width: 0; }
+.add-item-name { font-size: 13px; font-weight: 600; }
+.add-item-cat  { font-size: 11px; color: var(--text3); }
+.add-qty-row   { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.qty-active    { color: var(--accent); font-weight: 700; }
+</style>
