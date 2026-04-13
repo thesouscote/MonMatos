@@ -132,11 +132,16 @@ async function confirmSave() {
     isReturned: false,
     linkedToDepartId: null,
   })
-  await save()
-  saving.value = false
-  showSaveModal.value = false
-  emit('toast', `"${name}" sauvegardé !`)
-  emit('back')
+  try {
+    await save()
+    emit('toast', `"${name}" sauvegardé !`)
+    emit('back')
+  } catch (e) {
+    emit('toast', 'Vérifiez votre connexion et réessayez.')
+  } finally {
+    saving.value = false
+    showSaveModal.value = false
+  }
 }
 
 function resetAll() {

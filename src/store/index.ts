@@ -84,12 +84,18 @@ export function useStore() {
   async function save() {
     if (!state._uid) return
     const ref = doc(db, 'users', state._uid)
-    await setDoc(ref, {
+    const payload = JSON.parse(JSON.stringify({
       categories: state.categories,
       items: state.items,
       sessions: state.sessions,
       templates: state.templates,
-    })
+    }))
+    try {
+      await setDoc(ref, payload)
+    } catch (e) {
+      console.error('Save error:', e)
+      throw e
+    }
   }
 
   return { state, loadFromFirebase, save, resetState }

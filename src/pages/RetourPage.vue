@@ -239,10 +239,15 @@ async function openSave() {
     if (parent) parent.isReturned = true
   }
 
-  await save()
-  saving.value = false
-  emit('toast', `✅ ${name} sauvegardé !`)
-  emit('back')
+  try {
+    await save()
+    emit('toast', `✅ ${name} sauvegardé !`)
+    emit('back')
+  } catch (e) {
+    emit('toast', 'Erreur de sauvegarde, réessayez.')
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
