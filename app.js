@@ -168,9 +168,32 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
     }
 
     // ── CHECKLIST ──
-    window.goChecklist = (phase) => {
+    window.tryDepart = () => {
+      const pending = (userData.sessions || []).filter(s => s.phase === 'arrive' && !s.isReturned);
+      if (pending.length === 0) {
+        goChecklist('depart', null);
+      } else {
+        const listContainer = document.getElementById('link-depart-list');
+        listContainer.innerHTML = pending.map(s => {
+          const d = new Date(s.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+          return `<button class="depart-session-btn" onclick="goChecklist('depart', ${s.id})">
+            <div class="depart-session-btn-title">${s.name}</div>
+            <div class="depart-session-btn-date">${d} • ${s.checked} items emportés</div>
+          </button>`;
+        }).join('');
+        openModal('modal-link-depart');
+      }
+    };
+
+    window.goChecklist = (phase, parentId = null) => {
+      if (phase === 'depart') {
+        activeParentSessionId = parentId;
+        closeModal('modal-link-depart');
+      } else {
+        activeParentSessionId = null;
+      }
       activePhase = phase;
-      userData.items = (userData.items || []).map(i => ({ ...i, checkedArrive: false, checkedDepart: false }));
+      userData.items = (userData.items || []).map(i => ({ ...i, checkedArrive: false, checkedDepart: false, takenArrive: 0, takenDepart: 0 }));
       borrowedItems = [];
       if (phase === 'arrive') {
         showPage('page-checklist');
