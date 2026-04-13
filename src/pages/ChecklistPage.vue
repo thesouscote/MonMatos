@@ -177,6 +177,7 @@ function resetAll() {
               </div>
               <!-- STOCK INDICATOR -->
               <div class="stock-line">
+                <span v-if="item.status === 'lent'" class="stock-badge stock-lent">📤 Prêté / Loué</span>
                 <span v-if="item.availableQty === 0" class="stock-badge stock-empty">Épuisé</span>
                 <span v-else-if="item.availableQty < item.qty" class="stock-badge stock-partial">
                   {{ item.availableQty }}/{{ item.qty }} dispo
@@ -252,6 +253,7 @@ function resetAll() {
 .stock-ok      { background: rgba(34,197,94,0.12);  color: var(--ok); }
 .stock-partial { background: rgba(245,158,11,0.12); color: var(--warn); }
 .stock-empty   { background: rgba(239,68,68,0.12);  color: var(--danger); }
+.stock-lent    { background: rgba(139,92,246,0.15); color: #a78bfa; }
 
 /* Out of stock card */
 .item-card.out-of-stock {
