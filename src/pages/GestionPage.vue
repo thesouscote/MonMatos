@@ -196,8 +196,9 @@ async function confirmTransferItem() {
     
       // On crée une fausse "Session" pour réutiliser la logique d'import/export
     const fakeSession = {
+      isDirectTransfer: true,
       id: Date.now(),
-      name: `Transfert reçu : ${item.name}`,
+      name: `Transfert direct : ${item.name}`,
       date: new Date().toISOString(),
       phase: 'depart',
       isReturned: true, // Terminé automatiquement

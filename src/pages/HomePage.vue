@@ -87,7 +87,7 @@ function pct(checked: number, total: number) {
     <!-- HEADER -->
     <div class="home-header">
       <div>
-        <div class="greeting">Système de gestion <span class="badge-tech">v2.1.1</span></div>
+        <div class="greeting">Système de gestion <span class="badge-tech">v2.1.2</span></div>
         <div class="user-info">
           <Sparkles :size="14" style="color:var(--text3)" />
           <span>{{ user?.displayName || 'Réalisateur' }}</span>

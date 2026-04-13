@@ -29,26 +29,32 @@ export function useTransfers() {
 
   async function sendSessionToAccount(session: Session, toEmail: string) {
     if (!auth.currentUser) throw new Error("Non connecté")
+    
+    // Nettoyer l'objet session pour retirer toute valeur "undefined" qui fait planter Firestore
+    const cleanSession = JSON.parse(JSON.stringify(session))
+
     await addDoc(collection(db, 'transfers'), {
       fromUid: auth.currentUser.uid,
       fromEmail: auth.currentUser.email,
       toEmail: toEmail.toLowerCase().trim(),
-      session,
+      session: cleanSession,
       status: 'pending',
       createdAt: Date.now()
     })
   }
 
-  async function acceptTransfer(transferId: string, session: Session, store: any) {
+  async function acceptTransfer(transferId: string, session: any, store: any) {
     // 1. Mark transfer as accepted
     await updateDoc(doc(db, 'transfers', transferId), { status: 'accepted' })
     
-    // 2. Clone the session and assign a new ID
-    const newSession = {
-       ...session,
-       id: Date.now(),
+    // 2. Clone the session and assign a new ID seulement si c'est pas un transfert direct d'item
+    if (!session.isDirectTransfer) {
+      const newSession = {
+         ...session,
+         id: Date.now(),
+      }
+      store.state.sessions.unshift(newSession)
     }
-    store.state.sessions.unshift(newSession)
     
     // 3. Merging items into the receiver's inventory
     const existingItems = store.state.items
