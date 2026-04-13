@@ -24,13 +24,20 @@ const stockAvailable = computed(() =>
 
 const recentSessions = computed(() => (props.state.sessions || []).slice(0, 3))
 
-const availableItems = computed(() =>
-  (props.state.items || []).filter(i => i.status === 'ok' || i.status === 'lent')
-)
-
 const unavailableItems = computed(() =>
   (props.state.items || []).filter(i => i.status === 'repair' || i.status === 'lost')
 )
+
+// Stock numbers for display
+const totalItemCount = computed(() => (props.state.items || []).length)
+const totalUnitCount = computed(() => (props.state.items || []).reduce((s, i) => s + i.qty, 0))
+const inUseUnitCount = computed(() => {
+  const active = (props.state.sessions || []).filter(s => s.phase === 'arrive' && !s.isReturned)
+  let n = 0
+  for (const sess of active) for (const snap of (sess.snapshot || [])) n += snap.taken ?? 0
+  return n
+})
+const availableUnitCount = computed(() => Math.max(0, totalUnitCount.value - inUseUnitCount.value))
 
 async function logout() {
   await signOut(auth)
@@ -81,21 +88,46 @@ function pct(s: { checked: number; total: number }) {
         </div>
       </div>
 
-      <!-- ACTIONS -->
-      <div class="actions-grid">
-        <button class="action-card action-depart" :class="{ 'action-disabled': !stockAvailable }" @click="stockAvailable ? emit('navigate', 'checklist') : emit('toast', 'Aucun matos disponible — fais un retour !')">
-          <span class="action-icon">🎬</span>
-          <div class="action-title">Départ</div>
-          <div class="action-desc">{{ stockAvailable ? 'Préparer le matériel' : 'Stock épuisé' }}</div>
-          <div v-if="!stockAvailable" class="action-no-stock">🔴</div>
-        </button>
-        <button class="action-card action-retour" @click="emit('navigate', 'retour')">
-          <span class="action-icon">📦</span>
-          <div class="action-title">Retour</div>
-          <div class="action-desc">Vérifier le matériel</div>
-          <div v-if="pendingDepartures.length" class="action-badge">
-            {{ pendingDepartures.length }}
+      <!-- HERO CTA -->
+      <div class="hero-cta">
+        <!-- Stock info bar -->
+        <div class="stock-info-row">
+          <div class="stock-info-chip">
+            <span class="sic-dot dot-ok"></span>
+            <span>{{ availableUnitCount }} unité{{ availableUnitCount > 1 ? 'és' : 'é' }} dispo</span>
           </div>
+          <div class="stock-info-chip" v-if="inUseUnitCount > 0">
+            <span class="sic-dot dot-warn"></span>
+            <span>{{ inUseUnitCount }} en tournage</span>
+          </div>
+          <div class="stock-info-chip" v-if="unavailableItems.length > 0">
+            <span class="sic-dot dot-danger"></span>
+            <span>{{ unavailableItems.length }} indispo</span>
+          </div>
+          <div class="stock-info-chip">
+            <span class="sic-dot dot-neutral"></span>
+            <span>{{ totalItemCount }} réf.</span>
+          </div>
+        </div>
+
+        <!-- Big CTA -->
+        <button
+          class="big-cta"
+          :class="{ 'big-cta-disabled': !stockAvailable }"
+          @click="stockAvailable ? emit('navigate', 'checklist') : emit('toast', 'Aucun matos disponible — fais d\'abord un retour !')"
+        >
+          <span class="big-cta-icon">🎬</span>
+          <div class="big-cta-text">
+            <span class="big-cta-title">Préparer un Tournage</span>
+            <span class="big-cta-sub">{{ stockAvailable ? availableUnitCount + ' unités disponibles' : 'Stock épuisé' }}</span>
+          </div>
+          <span class="big-cta-arrow">{{ stockAvailable ? '→' : '🔴' }}</span>
+        </button>
+
+        <!-- Retour secondary -->
+        <button class="retour-btn" @click="emit('navigate', 'retour')">
+          <span>📦 Enregistrer un retour</span>
+          <span v-if="pendingDepartures.length" class="retour-badge">{{ pendingDepartures.length }}</span>
         </button>
       </div>
 
@@ -195,48 +227,64 @@ function pct(s: { checked: number; total: number }) {
 .stat-card.stat-warn { border-color: rgba(245,158,11,0.3); background: rgba(245,158,11,0.05); }
 .stat-val { font-size: 22px; font-weight: 800; }
 .stat-lbl { font-size: 9px; color: var(--text3); margin-top: 2px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
-.actions-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 14px;
+/* ── HERO CTA ── */
+.hero-cta { margin-bottom: 20px; }
+
+.stock-info-row {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;
 }
-.action-card {
-  position: relative;
-  display: flex; flex-direction: column; align-items: flex-start;
-  padding: 20px 16px;
+.stock-info-chip {
+  display: flex; align-items: center; gap: 5px;
+  background: var(--surface); border: 0.5px solid var(--border);
+  border-radius: 99px; padding: 5px 10px;
+  font-size: 11px; font-weight: 600; color: var(--text2);
+}
+.sic-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.dot-ok      { background: var(--ok); }
+.dot-warn    { background: var(--warn); }
+.dot-danger  { background: var(--danger); }
+.dot-neutral { background: var(--text3); }
+
+.big-cta {
+  width: 100%; display: flex; align-items: center; gap: 16px;
+  padding: 20px 20px;
   border-radius: var(--radius);
-  border: none; cursor: pointer;
-  text-align: left;
+  background: linear-gradient(135deg, rgba(240,192,64,0.22), rgba(240,192,64,0.06));
+  border: 0.5px solid rgba(240,192,64,0.35);
+  cursor: pointer; text-align: left;
   transition: transform 0.15s, box-shadow 0.15s;
+  margin-bottom: 10px;
+  box-shadow: 0 4px 24px rgba(240,192,64,0.10);
 }
-.action-card:active { transform: scale(0.97); }
-.action-depart {
-  background: linear-gradient(135deg, rgba(240,192,64,0.2), rgba(240,192,64,0.05));
-  border: 0.5px solid rgba(240,192,64,0.25);
+.big-cta:hover  { transform: translateY(-1px); box-shadow: 0 8px 32px rgba(240,192,64,0.18); }
+.big-cta:active { transform: scale(0.98); }
+.big-cta-disabled {
+  opacity: 0.5; filter: grayscale(40%);
+  box-shadow: none;
 }
-.action-retour {
-  background: linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.05));
-  border: 0.5px solid rgba(139,92,246,0.25);
+.big-cta-icon { font-size: 36px; flex-shrink: 0; }
+.big-cta-text { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.big-cta-title { font-size: 17px; font-weight: 800; color: var(--text); }
+.big-cta-sub   { font-size: 12px; color: var(--text2); }
+.big-cta-arrow { font-size: 20px; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+
+.retour-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 16px;
+  border-radius: var(--radius);
+  background: rgba(139,92,246,0.08);
+  border: 0.5px solid rgba(139,92,246,0.2);
+  cursor: pointer; font-size: 13px; font-weight: 600;
+  color: var(--text2);
+  transition: background 0.15s;
 }
-.action-icon { font-size: 28px; margin-bottom: 10px; }
-.action-title { font-size: 15px; font-weight: 700; color: var(--text); }
-.action-desc { font-size: 11px; color: var(--text2); margin-top: 2px; }
-.action-badge {
-  position: absolute; top: 10px; right: 10px;
-  background: var(--accent); color: #0a0a0f;
+.retour-btn:hover { background: rgba(139,92,246,0.14); }
+.retour-badge {
+  background: #8b5cf6; color: #fff;
   font-size: 10px; font-weight: 800;
-  width: 20px; height: 20px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
+  padding: 2px 8px; border-radius: 99px;
 }
-.action-disabled {
-  opacity: 0.55;
-  filter: grayscale(40%);
-}
-.action-no-stock {
-  position: absolute; top: 10px; right: 10px;
-  font-size: 14px;
-}
+
 .pending-banner {
   display: flex; align-items: center; gap: 8px;
   background: rgba(245,158,11,0.1);
