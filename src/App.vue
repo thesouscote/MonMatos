@@ -111,36 +111,40 @@ const navItems = [
 
     <!-- MAIN CONTENT -->
     <div class="app-desktop">
-      <HomePage
-        v-if="currentPage === 'home'"
-        :state="state"
-        @navigate="navigate"
-        @toast="showToast"
-      />
-      <ChecklistPage
-        v-else-if="currentPage === 'checklist'"
-        :state="state"
-        @back="navigate('home')"
-        @toast="showToast"
-      />
-      <RetourPage
-        v-else-if="currentPage === 'retour'"
-        :state="state"
-        @back="navigate('home')"
-        @toast="showToast"
-      />
-      <HistoriquePage
-        v-else-if="currentPage === 'historique'"
-        :state="state"
-        @back="navigate('home')"
-        @toast="showToast"
-      />
-      <GestionPage
-        v-else-if="currentPage === 'gestion'"
-        :state="state"
-        @back="navigate('home')"
-        @toast="showToast"
-      />
+      <Transition name="page" mode="out-in">
+        <div :key="currentPage" style="height:100%">
+          <HomePage
+            v-if="currentPage === 'home'"
+            :state="state"
+            @navigate="navigate"
+            @toast="showToast"
+          />
+          <ChecklistPage
+            v-else-if="currentPage === 'checklist'"
+            :state="state"
+            @back="navigate('home')"
+            @toast="showToast"
+          />
+          <RetourPage
+            v-else-if="currentPage === 'retour'"
+            :state="state"
+            @back="navigate('home')"
+            @toast="showToast"
+          />
+          <HistoriquePage
+            v-else-if="currentPage === 'historique'"
+            :state="state"
+            @back="navigate('home')"
+            @toast="showToast"
+          />
+          <GestionPage
+            v-else-if="currentPage === 'gestion'"
+            :state="state"
+            @back="navigate('home')"
+            @toast="showToast"
+          />
+        </div>
+      </Transition>
     </div>
 
     <ToastMsg ref="toast" />
@@ -166,14 +170,16 @@ const navItems = [
 <style>
 .si-badge {
   margin-left: auto;
-  background: #8b5cf6; color: #fff;
-  font-size: 10px; font-weight: 800;
-  padding: 1px 7px; border-radius: 99px;
+  background: var(--text3); color: var(--bg);
+  font-family: var(--font-mono);
+  font-size: 9px; font-weight: 800;
+  padding: 1px 6px; border-radius: 4px;
 }
 .profile-avatar-lg {
   width: 60px; height: 60px; border-radius: 50%;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  color: #0a0a0f; font-size: 22px; font-weight: 800;
+  background: var(--surface2);
+  border: 1px solid var(--border2);
+  color: var(--text); font-size: 22px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto;
 }

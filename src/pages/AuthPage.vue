@@ -136,7 +136,10 @@ function firebaseMsg(code: string) {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: radial-gradient(ellipse at 60% 0%, rgba(240,192,64,0.08) 0%, transparent 60%);
+  background-color: var(--bg);
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255,255,255,0.03) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(255,255,255,0.02) 0px, transparent 50%);
 }
 .auth-card {
   width: 100%;

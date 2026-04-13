@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { jsPDF } from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { useStore } from '../store'
 import type { UserData } from '../types'
 import {
@@ -18,7 +20,8 @@ import {
   Minus,
   Plus,
   Trash2,
-  Copy
+  Copy,
+  FileDown
 } from 'lucide-vue-next'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
@@ -165,6 +168,51 @@ async function deleteSession(id: number) {
   await save()
   emit('toast', 'Session supprimée')
 }
+
+function exportToPDF(s: any) {
+  const doc = new jsPDF()
+  const title = `MonMatos - ${s.name}`
+  const date = formatDate(s.date)
+  
+  // Header
+  doc.setFontSize(20)
+  doc.text("MonMatos", 14, 22)
+  doc.setFontSize(10)
+  doc.setTextColor(100)
+  doc.text(`Rapport de session : ${s.name}`, 14, 30)
+  doc.text(`Date : ${date}`, 14, 35)
+  doc.text(`Type : ${s.phase === 'depart' ? 'Retour' : 'Départ'}`, 14, 40)
+  
+  // Table
+  const tableData = s.snapshot.map((item: any) => [
+    item.name,
+    item.cat,
+    `${item.taken}/${item.qty}`,
+    item.checked ? 'OK' : 'PARTIEL'
+  ])
+  
+  autoTable(doc, {
+    startY: 50,
+    head: [['Équipement', 'Catégorie', 'Qté', 'État']],
+    body: tableData,
+    theme: 'grid',
+    headStyles: { fillColor: [0, 0, 0] },
+    styles: { fontSize: 9 }
+  })
+  
+  // Footer
+  const pageCount = (doc as any).internal.getNumberOfPages()
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i)
+    doc.setFontSize(8)
+    doc.setTextColor(150)
+    doc.text(`Généré par MonMatos - Page ${i}/${pageCount}`, 14, doc.internal.pageSize.height - 10)
+  }
+  
+  // Open in new tab
+  window.open(doc.output('bloburl'), '_blank')
+  emit('toast', 'PDF généré !')
+}
 </script>
 
 <template>
@@ -237,7 +285,10 @@ async function deleteSession(id: number) {
         <div class="hist-body" :class="{ open: openSessions.has(s.id) }">
           <div class="hist-phase-label" style="display:flex;align-items:center;justify-content:space-between">
             <span>{{ s.phase === 'depart' ? 'Équipements retournés' : 'Équipements emportés' }}</span>
-            <button class="cat-check-all" @click="copySummary(s)"><Copy :size="12" style="margin-right:4px" /> Copier</button>
+            <div style="display:flex;gap:8px">
+              <button class="cat-check-all" @click="exportToPDF(s)"><FileDown :size="12" style="margin-right:4px" /> PDF</button>
+              <button class="cat-check-all" @click="copySummary(s)"><Copy :size="12" style="margin-right:4px" /> Copier</button>
+            </div>
           </div>
 
           <!-- SNAPSHOT ITEMS (editable) -->
