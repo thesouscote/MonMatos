@@ -687,7 +687,7 @@ async function deleteTemplate(id: number) {
   display: flex;
   background: var(--surface);
   border: 0.5px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: 0;
   margin-bottom: 8px;
   overflow: hidden;
   transition: border-color 0.15s;

@@ -121,7 +121,7 @@ function pct(checked: number, total: number) {
         </div>
 
         <!-- RECENT ACTIVITY -->
-        <div v-if="recentSessions.length > 0" class="section-top">
+        <div v-if="recentSessions.length > 0" class="section-top" style="margin-top: 32px;">
           <div class="section-title">ACTIVITÉ RÉCENTE</div>
           <div class="recent-list">
             <div 

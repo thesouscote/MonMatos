@@ -171,7 +171,7 @@ select option { background: var(--surface2); }
 
 .page-content {
   flex: 1;
-  padding: 16px 20px 100px;
+  padding: 16px 20px calc(130px + env(safe-area-inset-bottom));
   overflow-y: auto;
 }
 
@@ -511,7 +511,7 @@ select option { background: var(--surface2); }
   background: var(--surface);
   border: 0.5px solid var(--border2);
   border-radius: 24px 24px 0 0;
-  padding: 28px 24px calc(56px + env(safe-area-inset-bottom)); /* Augmenté pour ne pas cacher les boutons */
+  padding: 28px 24px calc(84px + env(safe-area-inset-bottom)); /* Augmenté pour ne pas cacher les boutons */
   width: 100%;
   max-width: 480px;
   max-height: 85dvh; /* Réduit à 85dvh pour laisser de la place au clavier iOS */
