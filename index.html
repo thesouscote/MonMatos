@@ -1722,35 +1722,91 @@
     }
 
     function itemCardHTML(item, phase) {
-      const isChecked = phase === 'arrive' ? item.checkedArrive : item.checkedDepart;
+      const isArrive = phase === 'arrive';
+      const takenField = isArrive ? 'takenArrive' : 'takenDepart';
+      const checkedField = isArrive ? 'checkedArrive' : 'checkedDepart';
+      
+      if (item[takenField] === undefined) {
+        item[takenField] = item[checkedField] ? item.qty : 0;
+      }
+      
+      const taken = item[takenField];
+      const isChecked = taken === item.qty;
+      const isPartial = taken > 0 && taken < item.qty;
+      const checkClass = isChecked ? 'checked' : (isPartial ? 'partial' : '');
+
       const extra = item.borrowedFrom ? `<span style="font-size:11px; color:var(--warn);">→ Rendre à ${item.borrowedFrom}</span>` : '';
-      return `<div class="item-card ${isChecked ? 'checked' : ''}" onclick="toggleItem(${item.id || item._bid}, '${phase}')">
-    <div class="check-circle"><div class="check-circle-inner"></div></div>
+      
+      let qtyControl = '';
+      if (item.qty > 1) {
+        qtyControl = `
+          <div class="qty-selector" onclick="event.stopPropagation()">
+            <button class="qty-btn" onclick="changeItemQty(${item.id || item._bid}, '${phase}', -1)">-</button>
+            <span class="qty-val">${taken}/${item.qty}</span>
+            <button class="qty-btn" onclick="changeItemQty(${item.id || item._bid}, '${phase}', 1)">+</button>
+          </div>
+        `;
+      } else {
+        qtyControl = `<span class="item-qty-badge">×1</span>`;
+      }
+
+      return `<div class="item-card ${checkClass}" onclick="toggleItem(${item.id || item._bid}, '${phase}')">
+    <div class="check-circle"><div class="check-circle-inner" style="${isPartial ? 'opacity:1; border-left:none; border-right:none; border-top:none; transform:scale(0.8) translateY(-3px); border-color:#1a1000;' : ''}"></div></div>
     <div class="item-info">
       <div class="item-name-text">${item.name}</div>
       ${extra}
     </div>
-    ${item.qty > 1 ? `<span class="item-qty-badge">×${item.qty}</span>` : ''}
+    ${qtyControl}
   </div>`;
     }
 
     window.toggleItem = (id, phase) => {
-      if (phase === 'arrive') {
-        const item = userData.items.find(i => i.id === id);
-        if (item) { item.checkedArrive = !item.checkedArrive; renderChecklist(); }
+      let item = (userData.items || []).find(i => i.id === id);
+      if (!item) item = borrowedItems.find(i => i._bid === id);
+      if (!item) return;
+
+      const takenField = phase === 'arrive' ? 'takenArrive' : 'takenDepart';
+      if (item[takenField] === undefined) item[takenField] = 0;
+
+      if (item[takenField] === item.qty) {
+        item[takenField] = 0;
       } else {
-        let item = userData.items.find(i => i.id === id);
-        if (!item) item = borrowedItems.find(i => i._bid === id);
-        if (item) { item.checkedDepart = !item.checkedDepart; renderDepartChecklist(); }
+        item[takenField] = item.qty;
       }
+      
+      if (phase === 'arrive') item.checkedArrive = (item[takenField] === item.qty);
+      else item.checkedDepart = (item[takenField] === item.qty);
+
+      if (phase === 'arrive') renderChecklist();
+      else renderDepartChecklist();
+    };
+
+    window.changeItemQty = (id, phase, delta) => {
+      let item = (userData.items || []).find(i => i.id === id);
+      if (!item) item = borrowedItems.find(i => i._bid === id);
+      if (!item) return;
+
+      const takenField = phase === 'arrive' ? 'takenArrive' : 'takenDepart';
+      if (item[takenField] === undefined) item[takenField] = 0;
+
+      let newQty = item[takenField] + delta;
+      if (newQty < 0) newQty = 0;
+      if (newQty > item.qty) newQty = item.qty;
+      
+      item[takenField] = newQty;
+      if (phase === 'arrive') item.checkedArrive = (item[takenField] === item.qty);
+      else item.checkedDepart = (item[takenField] === item.qty);
+
+      if (phase === 'arrive') renderChecklist();
+      else renderDepartChecklist();
     };
 
     window.resetPhase = (phase) => {
       if (phase === 'arrive') {
-        userData.items.forEach(i => i.checkedArrive = false);
+        userData.items.forEach(i => { i.checkedArrive = false; i.takenArrive = 0; });
         renderChecklist();
       } else {
-        userData.items.forEach(i => i.checkedDepart = false);
+        userData.items.forEach(i => { i.checkedDepart = false; i.takenDepart = 0; });
         borrowedItems = [];
         renderDepartChecklist();
       }
@@ -1826,11 +1882,15 @@
         phase,
         total: items.length,
         checked,
-        snapshot: items.map(i => ({
-          name: i.name, cat: i.cat || '', qty: i.qty,
-          checked: phase === 'arrive' ? !!i.checkedArrive : !!i.checkedDepart,
-          borrowedFrom: i.borrowedFrom || null
-        }))
+        snapshot: items.map(i => {
+          const taken = phase === 'arrive' ? (i.takenArrive !== undefined ? i.takenArrive : (i.checkedArrive ? i.qty : 0)) : (i.takenDepart !== undefined ? i.takenDepart : (i.checkedDepart ? i.qty : 0));
+          return {
+            name: i.name, cat: i.cat || '', qty: i.qty,
+            taken: taken,
+            checked: phase === 'arrive' ? !!i.checkedArrive : !!i.checkedDepart,
+            borrowedFrom: i.borrowedFrom || null
+          };
+        })
       };
 
       if (!userData.sessions) userData.sessions = [];
@@ -1867,12 +1927,14 @@
       </div>
       <div class="hist-body" id="hb-${s.id}">
         <div class="hist-phase-label">${s.phase === 'depart' ? 'Check retour' : 'Check départ'}</div>
-        ${(s.snapshot || []).map(item =>
-          `<div class="hist-item">
-            <div class="dot ${item.checked ? 'dot-ok' : 'dot-ko'}"></div>
-            <span>${item.name}${item.qty > 1 ? ` ×${item.qty}` : ''}${item.borrowedFrom ? ` (rendu à ${item.borrowedFrom})` : ''}</span>
+        ${(s.snapshot || []).map(item => {
+           let qtyStr = item.qty > 1 ? ` (${item.taken !== undefined ? item.taken : (item.checked ? item.qty : 0)}/${item.qty})` : '';
+           let isPartialDisplay = item.taken > 0 && item.taken < item.qty;
+           return `<div class="hist-item">
+            <div class="dot ${item.checked ? 'dot-ok' : (isPartialDisplay ? 'dot-warn' : 'dot-ko')}"></div>
+            <span>${item.name}${qtyStr}${item.borrowedFrom ? ` (rendu à ${item.borrowedFrom})` : ''}</span>
           </div>`
-        ).join('')}
+        }).join('')}
         <button class="hist-del" onclick="deleteSession(${s.id})">Supprimer cette session</button>
       </div>
     </div>`;

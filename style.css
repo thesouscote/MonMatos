@@ -5,8 +5,8 @@
   --bg: #0a0a0f;
   --bg2: #111118;
   --bg3: #1a1a24;
-  --surface: rgba(255,255,255,0.05);
-  --surface2: rgba(255,255,255,0.08);
+  --surface: #1a1a24;
+  --surface2: #2a2a36;
   --border: rgba(255,255,255,0.08);
   --border2: rgba(255,255,255,0.14);
   --text: #f0f0f5;
@@ -578,6 +578,57 @@ html, body {
 }
 
 .item-delete:hover { background: var(--danger-bg); color: var(--danger); }
+
+/* QUANTITY SELECTOR */
+.qty-selector {
+  display: flex;
+  align-items: center;
+  background: var(--bg3);
+  border: 0.5px solid var(--border2);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.qty-btn {
+  background: var(--surface2);
+  border: none;
+  color: var(--text);
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.qty-btn:active {
+  background: var(--surface);
+}
+
+.qty-val {
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  min-width: 38px;
+  text-align: center;
+  color: var(--text);
+}
+
+.item-card.partial {
+  border-color: rgba(251, 191, 36, 0.3);
+  background: rgba(251, 191, 36, 0.05);
+}
+
+.item-card.partial .check-circle {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+.dot-warn {
+  background: var(--warn);
+}
+
 
 /* FLOATING ACTION */
 .fab-area {
