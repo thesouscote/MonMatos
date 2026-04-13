@@ -375,7 +375,8 @@ async function deleteTemplate(id: number) {
         <!-- ITEMS BY CATEGORY -->
         <template v-for="group in itemsByCat" :key="group.cat">
           <div class="cat-label">{{ group.cat }}</div>
-          <div v-for="item in group.items" :key="item.id" class="equip-card" :class="`status-border-${item.status}`">
+          <div class="items-grid">
+            <div v-for="item in group.items" :key="item.id" class="equip-card" :class="`status-border-${item.status}`" style="margin-bottom:0">
             <!-- LEFT: status indicator -->
             <div class="equip-status-bar" :class="`bg-${item.status}`"></div>
 
@@ -411,6 +412,7 @@ async function deleteTemplate(id: number) {
             <div class="equip-actions">
               <button class="equip-edit-btn" @click="openEditModal(item)"><Pencil :size="16" /></button>
               <button class="equip-del-btn" @click="askDeleteItem(item.id)"><Trash2 :size="16" /></button>
+            </div>
             </div>
           </div>
         </template>
@@ -726,7 +728,8 @@ async function deleteTemplate(id: number) {
 /* ── FAB ── */
 .fab {
   position: fixed;
-  bottom: 24px; right: calc(50% - 220px);
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  right: 24px;
   width: 56px; height: 56px;
   border-radius: 50%;
   background: var(--accent);
@@ -738,8 +741,12 @@ async function deleteTemplate(id: number) {
   z-index: 50;
   border: none; cursor: pointer;
 }
-.fab:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(240,192,64,0.5); }
-.fab:active { transform: scale(0.95); }
+
+@media (min-width: 1200px) {
+  .fab {
+    right: calc(50% - 580px); /* Anchor FAB to the right side of the 1100px container */
+  }
+}
 
 /* ── FORM ── */
 .form-group { margin-bottom: 12px; }

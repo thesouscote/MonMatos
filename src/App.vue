@@ -168,7 +168,8 @@ const navItems = [
       </div>
     </Teleport>
 
-    <nav class="nav-bar">
+    <!-- BOTTOM NAV (MOBILE ONLY) -->
+    <nav v-show="['home', 'historique', 'gestion'].includes(currentPage)" class="nav-bar">
       <button
         v-for="item in navItems"
         :key="item.key"

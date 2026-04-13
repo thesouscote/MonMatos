@@ -319,29 +319,32 @@ async function openSave() {
         <template v-for="cat in cats" :key="cat">
           <template v-if="filteredByCat(cat).length">
             <div class="cat-label">{{ cat }}</div>
-            <div
-              v-for="item in filteredByCat(cat)"
-              :key="item.id"
-              class="item-card"
-              :class="checkClass(item)"
-              @click="toggleItem(item)"
-            >
-              <div class="check-circle">
-                <Check v-if="item.checkedDepart" :size="10" stroke-width="3" />
-                <div v-else-if="(item.takenDepart ?? 0) > 0" class="partial-dot"></div>
+            <div class="items-grid">
+              <div
+                v-for="item in filteredByCat(cat)"
+                :key="item.id"
+                class="item-card"
+                :class="checkClass(item)"
+                style="margin-bottom:0"
+                @click="toggleItem(item)"
+              >
+                <div class="check-circle">
+                  <Check v-if="item.checkedDepart" :size="10" stroke-width="3" />
+                  <div v-else-if="(item.takenDepart ?? 0) > 0" class="partial-dot"></div>
+                </div>
+                <div v-if="item.imageUrl" class="item-mini-thumb">
+                  <img :src="item.imageUrl" alt="" loading="lazy" />
+                </div>
+                <div class="item-info">
+                  <div class="item-name-text">{{ item.name }}</div>
+                </div>
+                <div v-if="getMaxQty(item) > 1" class="qty-selector" @click.stop>
+                  <button class="qty-btn" @click="changeQty(item, -1)"><Minus :size="14" /></button>
+                  <span class="qty-val">{{ item.takenDepart ?? 0 }}/{{ getMaxQty(item) }}</span>
+                  <button class="qty-btn" @click="changeQty(item, 1)"><Plus :size="14" /></button>
+                </div>
+                <span v-else class="item-qty-badge">×1</span>
               </div>
-              <div v-if="item.imageUrl" class="item-mini-thumb">
-                <img :src="item.imageUrl" alt="" loading="lazy" />
-              </div>
-              <div class="item-info">
-                <div class="item-name-text">{{ item.name }}</div>
-              </div>
-              <div v-if="getMaxQty(item) > 1" class="qty-selector" @click.stop>
-                <button class="qty-btn" @click="changeQty(item, -1)"><Minus :size="14" /></button>
-                <span class="qty-val">{{ item.takenDepart ?? 0 }}/{{ getMaxQty(item) }}</span>
-                <button class="qty-btn" @click="changeQty(item, 1)"><Plus :size="14" /></button>
-              </div>
-              <span v-else class="item-qty-badge">×1</span>
             </div>
           </template>
         </template>
@@ -440,14 +443,15 @@ async function openSave() {
   font-size: 12px; font-weight: 700;
 }
 .bottom-bar {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 480px;
-  display: flex; gap: 10px;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  width: 100%;
+  display: flex; gap: 10px; justify-content: center;
   padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
-  background: rgba(22,22,31,0.95);
-  backdrop-filter: blur(20px);
+  background: rgba(22,22,31,0.95); backdrop-filter: blur(20px);
   border-top: 0.5px solid var(--border2);
+  z-index: 1001;
 }
+.bottom-bar > .btn { max-width: 400px; }
 .partial-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 
 .btn-add-matos {

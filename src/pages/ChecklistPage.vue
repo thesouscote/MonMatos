@@ -199,12 +199,14 @@ function resetAll() {
               {{ filteredByCat(cat).every(i => (i.takenArrive ?? 0) > 0 && i.availableQty > 0) ? 'Tout décocher' : 'Tout cocher' }}
             </button>
           </div>
-          <div
-            v-for="item in filteredByCat(cat)"
-            :key="item.id"
-            class="item-card"
-            :class="checkClass(item)"
-          >
+          <div class="items-grid">
+            <div
+              v-for="item in filteredByCat(cat)"
+              :key="item.id"
+              class="item-card"
+              :class="checkClass(item)"
+              style="margin-bottom:0"
+            >
             <!-- Cercle = toggle -->
             <div
               class="check-circle"
@@ -249,6 +251,7 @@ function resetAll() {
             </div>
             <span v-else-if="item.availableQty === 1" class="item-qty-badge">×1</span>
             <span v-else class="item-qty-badge" style="opacity:0.3">×0</span>
+            </div>
           </div>
         </template>
       </template>
@@ -287,13 +290,15 @@ function resetAll() {
   font-size: 12px; font-weight: 700;
 }
 .bottom-bar {
-  position: fixed; bottom: 0; left: 50%; transform: translateX(-50%);
-  width: 100%; max-width: 480px;
-  display: flex; gap: 10px;
+  position: fixed; bottom: 0; left: 0; right: 0;
+  width: 100%;
+  display: flex; gap: 10px; justify-content: center;
   padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
   background: rgba(22,22,31,0.95); backdrop-filter: blur(20px);
   border-top: 0.5px solid var(--border2);
+  z-index: 1001; /* Above mobile nav if it ever shows */
 }
+.bottom-bar > .btn { max-width: 400px; }
 .partial-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
 
 /* Stock indicators */

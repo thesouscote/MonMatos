@@ -86,58 +86,60 @@ function pct(checked: number, total: number) {
     </div>
 
     <div class="page-content">
-      <!-- TECHNICAL DASHBOARD -->
-      <div class="tech-dashboard">
-        <div class="dashboard-grid">
-          <div class="tech-gauge-wrap">
-            <svg class="tech-gauge" viewBox="0 0 100 100">
-              <circle cx="50" cy="50" r="45" class="gauge-bg" />
-              <circle
-                cx="50" cy="50" r="45"
-                class="gauge-fill"
-                :stroke-dasharray="282.7"
-                :stroke-dashoffset="282.7 - (availabilityPct * 2.827)"
-                stroke-linecap="round"
-              />
-            </svg>
-            <div class="gauge-info">
-              <span class="gauge-val">{{ availabilityPct }}%</span>
-              <span class="gauge-lbl">STOCK</span>
+      <div class="grid-2">
+        <!-- TECHNICAL DASHBOARD -->
+        <div class="tech-dashboard" style="margin-bottom:0">
+          <div class="dashboard-grid">
+            <div class="tech-gauge-wrap">
+              <svg class="tech-gauge" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="45" class="gauge-bg" />
+                <circle
+                  cx="50" cy="50" r="45"
+                  class="gauge-fill"
+                  :stroke-dasharray="282.7"
+                  :stroke-dashoffset="282.7 - (availabilityPct * 2.827)"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <div class="gauge-info">
+                <span class="gauge-val">{{ availabilityPct }}%</span>
+                <span class="gauge-lbl">STOCK</span>
+              </div>
             </div>
-          </div>
 
-          <div class="tech-stats">
-            <div class="t-stat">
-              <span class="t-stat-lbl">TOTAL</span>
-              <span class="t-stat-val">{{ totalUnitCount }}</span>
-            </div>
-            <div class="t-stat" :class="{ 't-warn': inUseUnitCount > 0 }">
-              <span class="t-stat-lbl">OUT</span>
-              <span class="t-stat-val">{{ inUseUnitCount }}</span>
+            <div class="tech-stats">
+              <div class="t-stat">
+                <span class="t-stat-lbl">TOTAL</span>
+                <span class="t-stat-val">{{ totalUnitCount }}</span>
+              </div>
+              <div class="t-stat" :class="{ 't-warn': inUseUnitCount > 0 }">
+                <span class="t-stat-lbl">OUT</span>
+                <span class="t-stat-val">{{ inUseUnitCount }}</span>
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- RECENT ACTIVITY -->
-      <div v-if="recentSessions.length > 0" class="section-top">
-        <div class="section-title">ACTIVITÉ RÉCENTE</div>
-        <div class="recent-list">
-          <div 
-            v-for="s in recentSessions" :key="s.id" 
-            class="session-row" 
-            @click="emit('navigate', 'historique')"
-          >
-            <span class="sr-name">{{ s.name }}</span>
-            <span class="sr-date">{{ formatDate(s.date) }}</span>
-            <span class="sr-pct">{{ pct(s.checked, s.total) }}%</span>
+        <!-- RECENT ACTIVITY -->
+        <div v-if="recentSessions.length > 0" class="section-top">
+          <div class="section-title">ACTIVITÉ RÉCENTE</div>
+          <div class="recent-list">
+            <div 
+              v-for="s in recentSessions" :key="s.id" 
+              class="session-row" 
+              @click="emit('navigate', 'historique')"
+            >
+              <span class="sr-name">{{ s.name }}</span>
+              <span class="sr-date">{{ formatDate(s.date) }}</span>
+              <span class="sr-pct">{{ pct(s.checked, s.total) }}%</span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div v-else class="empty-state">
-        <Clapperboard :size="48" style="opacity:0.1;margin-bottom:12px" />
-        <p>Aucune activité enregistrée.</p>
+        <div v-else class="empty-state">
+          <Clapperboard :size="48" style="opacity:0.1;margin-bottom:12px" />
+          <p>Aucune activité enregistrée.</p>
+        </div>
       </div>
 
     </div>
