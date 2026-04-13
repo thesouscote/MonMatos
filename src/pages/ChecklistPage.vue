@@ -32,13 +32,14 @@ const pct = computed(() => total.value ? Math.round((checkedCount.value / total.
 const allDone = computed(() => total.value > 0 && checkedCount.value === total.value)
 
 function toggleItem(item: Item) {
-  const maxQty = item.qty
-  if ((item.takenArrive ?? 0) === maxQty) {
+  if ((item.takenArrive ?? 0) === 0) {
+    // Pas encore pris → prendre tout
+    item.takenArrive = item.qty
+    item.checkedArrive = true
+  } else {
+    // Partiellement ou totalement pris → tout décocher
     item.takenArrive = 0
     item.checkedArrive = false
-  } else {
-    item.takenArrive = maxQty
-    item.checkedArrive = true
   }
 }
 

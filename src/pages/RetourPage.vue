@@ -69,10 +69,12 @@ function getMaxQty(item: Item): number {
 
 function toggleItem(item: Item) {
   const max = getMaxQty(item)
-  if ((item.takenDepart ?? 0) === max) {
-    item.takenDepart = 0; item.checkedDepart = false
+  if ((item.takenDepart ?? 0) === 0) {
+    item.takenDepart = max
+    item.checkedDepart = true
   } else {
-    item.takenDepart = max; item.checkedDepart = true
+    item.takenDepart = 0
+    item.checkedDepart = false
   }
 }
 
