@@ -21,7 +21,8 @@ import {
   Plus,
   Trash2,
   Copy,
-  FileDown
+  FileDown,
+  Mail
 } from 'lucide-vue-next'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
@@ -124,6 +125,22 @@ function copySummary(s: any) {
   ]
   navigator.clipboard.writeText(lines.join('\n'))
   emit('toast', 'Résumé copié !')
+}
+
+// ─── SHARE EMAIL ───
+function shareEmail(s: any) {
+  const subject = encodeURIComponent(`${s.phase === 'depart' ? 'Retour' : 'Départ'} : ${s.name}`);
+  const lines = [
+    `📋 ${s.name}`,
+    `📅 ${formatDate(s.date)}`,
+    `${phaseLabel(s)}`,
+    '',
+    ...(s.snapshot || []).map((i: any) =>
+      `${i.taken > 0 ? '✅' : '❌'} ${i.name} (${i.taken}/${i.qty})`
+    )
+  ];
+  const body = encodeURIComponent(lines.join('\n'));
+  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
 }
 
 // ─── CORE ───
@@ -288,6 +305,7 @@ function exportToPDF(s: any) {
             <div style="display:flex;gap:8px">
               <button class="cat-check-all" @click="exportToPDF(s)"><FileDown :size="12" style="margin-right:4px" /> PDF</button>
               <button class="cat-check-all" @click="copySummary(s)"><Copy :size="12" style="margin-right:4px" /> Copier</button>
+              <button class="cat-check-all" @click="shareEmail(s)"><Mail :size="12" style="margin-right:4px" /> E-mail</button>
             </div>
           </div>
 

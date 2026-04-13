@@ -15,7 +15,8 @@ import {
   Check,
   Wrench,
   ArrowUpRight,
-  ChevronLeft
+  ChevronLeft,
+  Mail
 } from 'lucide-vue-next'
 import type { UserData, Item, StatusType, Template } from '../types'
 import { STATUS_MAP } from '../types'
@@ -229,6 +230,28 @@ async function deleteTemplate(id: number) {
   await save()
   emit('toast', 'Template supprimé')
 }
+
+function exportInventoryEmail() {
+  const subject = encodeURIComponent('Liste de notre matériel');
+  const lines = ['Bonjour,', '', 'Voici la liste complète de notre matériel :', ''];
+  
+  const cats = props.state.categories || [];
+  cats.forEach(cat => {
+    const items = props.state.items?.filter(i => i.cat === cat) || [];
+    if (items.length > 0) {
+      lines.push(`-- ${cat.toUpperCase()} --`);
+      items.forEach(i => {
+        const info = i.tags?.length ? ` [${i.tags.join(', ')}]` : '';
+        const state = i.status === 'ok' ? '' : ` (état: ${STATUS_MAP[i.status].label})`;
+        lines.push(`• ${i.name} (x${i.qty})${info}${state}`);
+      });
+      lines.push('');
+    }
+  });
+  
+  const body = encodeURIComponent(lines.join('\n'));
+  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+}
 </script>
 
 <template>
@@ -260,10 +283,15 @@ async function deleteTemplate(id: number) {
       <!-- ═══════════ ITEMS ═══════════ -->
       <template v-if="tab === 'items'">
         <!-- SEARCH -->
-        <div class="search-bar" style="margin-bottom:12px">
-          <Search :size="16" class="search-icon" />
-          <input v-model="search" placeholder="Rechercher un équipement…" />
-          <button v-if="search" @click="search=''"><X :size="16" style="color:var(--text3)" /></button>
+        <div style="display:flex;gap:8px;margin-bottom:12px">
+          <div class="search-bar" style="flex:1;margin-bottom:0">
+            <Search :size="16" class="search-icon" />
+            <input v-model="search" placeholder="Rechercher un équipement…" />
+            <button v-if="search" @click="search=''"><X :size="16" style="color:var(--text3)" /></button>
+          </div>
+          <button class="btn btn-secondary btn-sm" @click="exportInventoryEmail" style="padding:0 12px; white-space:nowrap" title="Envoyer par mail">
+            <Mail :size="16" />
+          </button>
         </div>
 
         <!-- CAT FILTER PILLS -->
