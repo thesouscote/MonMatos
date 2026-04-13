@@ -1286,7 +1286,7 @@
         <div class="action-title">Départ</div>
         <div class="action-desc">Vérifie le mato avant de partir en tournage</div>
       </div>
-      <div class="action-card action-card-depart" onclick="goChecklist('depart')">
+      <div class="action-card action-card-depart" onclick="tryDepart()">
         <span class="action-icon">📦</span>
         <div class="action-title">Retour</div>
         <div class="action-desc">Vérifie que tout est bien rangé et rendu</div>
@@ -1485,6 +1485,18 @@
     </div>
   </div>
 
+  <div class="modal-overlay" id="modal-link-depart">
+    <div class="modal">
+      <h3>Choisir un départ</h3>
+      <p>Pour quel tournage fais-tu ce retour ?</p>
+      <div id="link-depart-list" style="margin-bottom: 20px; max-height: 250px; overflow-y: auto;"></div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal('modal-link-depart')">Annuler</button>
+        <button class="btn-cancel" onclick="goChecklist('depart', null)">Retour libre</button>
+      </div>
+    </div>
+  </div>
+
   <!-- FIREBASE -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -1510,6 +1522,7 @@
     let currentUser = null;
     let userData = { categories: [], items: [], sessions: [] };
     let activePhase = 'arrive';
+    let activeParentSessionId = null;
     let currentSavePhase = null;
     let borrowedItems = [];
 
@@ -1692,9 +1705,31 @@
     }
 
     function renderDepartChecklist() {
-      const items = userData.items || [];
+      let items = userData.items || [];
       const cats = userData.categories || [];
-      const allItems = [...items, ...borrowedItems];
+      
+      let parentSession = null;
+      if (activeParentSessionId) {
+          parentSession = (userData.sessions || []).find(s => s.id === activeParentSessionId);
+      }
+      
+      let displayItems = [];
+      if (parentSession && parentSession.snapshot) {
+          const parentSnaps = parentSession.snapshot.filter(s => s.taken > 0);
+          parentSnaps.forEach(snap => {
+              const originalItem = items.find(i => i.id === snap.id);
+              if (originalItem) {
+                  displayItems.push({ ...originalItem, qty: snap.taken });
+              } else {
+                  const byName = items.find(i => i.name === snap.name);
+                  if (byName) displayItems.push({ ...byName, qty: snap.taken });
+              }
+          });
+      } else {
+          displayItems = [...items];
+      }
+
+      const allItems = [...displayItems, ...borrowedItems];
       const checked = allItems.filter(i => i.checkedDepart).length;
       const total = allItems.length;
 
@@ -1703,7 +1738,7 @@
 
       let html = '';
       cats.forEach(cat => {
-        const catItems = items.filter(i => i.cat === cat);
+        const catItems = displayItems.filter(i => i.cat === cat);
         if (!catItems.length) return;
         html += `<div class="cat-label">${cat}</div>`;
         catItems.forEach(item => {
@@ -1768,14 +1803,23 @@
       const takenField = phase === 'arrive' ? 'takenArrive' : 'takenDepart';
       if (item[takenField] === undefined) item[takenField] = 0;
 
-      if (item[takenField] === item.qty) {
+      let maxQty = item.qty;
+      if (phase === 'depart' && activeParentSessionId) {
+          const parentSession = userData.sessions.find(s => s.id === activeParentSessionId);
+          if (parentSession) {
+              const snap = parentSession.snapshot.find(s => s.id === id || s.name === item.name);
+              if (snap) maxQty = snap.taken;
+          }
+      }
+
+      if (item[takenField] === maxQty) {
         item[takenField] = 0;
       } else {
-        item[takenField] = item.qty;
+        item[takenField] = maxQty;
       }
       
-      if (phase === 'arrive') item.checkedArrive = (item[takenField] === item.qty);
-      else item.checkedDepart = (item[takenField] === item.qty);
+      if (phase === 'arrive') item.checkedArrive = (item[takenField] === maxQty);
+      else item.checkedDepart = (item[takenField] === maxQty);
 
       if (phase === 'arrive') renderChecklist();
       else renderDepartChecklist();
@@ -1789,13 +1833,22 @@
       const takenField = phase === 'arrive' ? 'takenArrive' : 'takenDepart';
       if (item[takenField] === undefined) item[takenField] = 0;
 
+      let maxQty = item.qty;
+      if (phase === 'depart' && activeParentSessionId) {
+          const parentSession = userData.sessions.find(s => s.id === activeParentSessionId);
+          if (parentSession) {
+              const snap = parentSession.snapshot.find(s => s.id === id || s.name === item.name);
+              if (snap) maxQty = snap.taken;
+          }
+      }
+
       let newQty = item[takenField] + delta;
       if (newQty < 0) newQty = 0;
-      if (newQty > item.qty) newQty = item.qty;
+      if (newQty > maxQty) newQty = maxQty;
       
       item[takenField] = newQty;
-      if (phase === 'arrive') item.checkedArrive = (item[takenField] === item.qty);
-      else item.checkedDepart = (item[takenField] === item.qty);
+      if (phase === 'arrive') item.checkedArrive = (item[takenField] === maxQty);
+      else item.checkedDepart = (item[takenField] === maxQty);
 
       if (phase === 'arrive') renderChecklist();
       else renderDepartChecklist();
@@ -1857,8 +1910,24 @@
     // ── SAVE SESSION ──
     window.openSaveModal = (phase) => {
       currentSavePhase = phase;
-      const items = phase === 'arrive' ? userData.items : [...userData.items, ...borrowedItems];
-      const checked = items.filter(i => phase === 'arrive' ? i.checkedArrive : i.checkedDepart).length;
+      let targetItems = [];
+      if (phase === 'arrive') {
+          targetItems = userData.items;
+      } else {
+          targetItems = [...userData.items, ...borrowedItems];
+          if (activeParentSessionId) {
+              const p = userData.sessions.find(s => s.id === activeParentSessionId);
+              if (p && p.snapshot) {
+                  const snapItems = p.snapshot.filter(s => s.taken > 0);
+                  targetItems = [...borrowedItems];
+                  snapItems.forEach(snap => {
+                      const orig = userData.items.find(i => i.id === snap.id || i.name === snap.name);
+                      if (orig) targetItems.push(orig);
+                  });
+              }
+          }
+      }
+      const checked = targetItems.filter(i => phase === 'arrive' ? i.checkedArrive : i.checkedDepart).length;
       if (checked === 0) { showToast('Coche au moins un item !'); return; }
       const defaultName = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }) + (phase === 'arrive' ? ' – Départ' : ' – Retour');
       document.getElementById('modal-session-name').value = defaultName;
@@ -1872,29 +1941,55 @@
     window.confirmSave = async () => {
       const name = document.getElementById('modal-session-name').value.trim() || 'Session sans nom';
       const phase = currentSavePhase;
-      const items = phase === 'arrive' ? userData.items : [...userData.items, ...borrowedItems];
-      const checked = items.filter(i => phase === 'arrive' ? i.checkedArrive : i.checkedDepart).length;
+      
+      let targetItems = [];
+      if (phase === 'arrive') {
+          targetItems = userData.items;
+      } else {
+          targetItems = [...userData.items, ...borrowedItems];
+          if (activeParentSessionId) {
+              const p = userData.sessions.find(s => s.id === activeParentSessionId);
+              if (p && p.snapshot) {
+                  const snapItems = p.snapshot.filter(s => s.taken > 0);
+                  const newTargetList = [];
+                  snapItems.forEach(snap => {
+                      const orig = userData.items.find(i => i.id === snap.id || i.name === snap.name);
+                      if (orig) newTargetList.push({ ...orig, qty: snap.taken });
+                  });
+                  targetItems = [...newTargetList, ...borrowedItems];
+              }
+          }
+      }
+
+      const checked = targetItems.filter(i => phase === 'arrive' ? i.checkedArrive : i.checkedDepart).length;
 
       const session = {
         id: Date.now(),
         name,
         date: new Date().toISOString(),
         phase,
-        total: items.length,
+        total: targetItems.length,
         checked,
-        snapshot: items.map(i => {
+        snapshot: targetItems.map(i => {
           const taken = phase === 'arrive' ? (i.takenArrive !== undefined ? i.takenArrive : (i.checkedArrive ? i.qty : 0)) : (i.takenDepart !== undefined ? i.takenDepart : (i.checkedDepart ? i.qty : 0));
           return {
+            id: i.id || i._bid,
             name: i.name, cat: i.cat || '', qty: i.qty,
             taken: taken,
             checked: phase === 'arrive' ? !!i.checkedArrive : !!i.checkedDepart,
             borrowedFrom: i.borrowedFrom || null
           };
-        })
+        }),
+        linkedToDepartId: phase === 'depart' ? activeParentSessionId : null
       };
 
       if (!userData.sessions) userData.sessions = [];
       userData.sessions.unshift(session);
+      
+      if (phase === 'depart' && activeParentSessionId) {
+          const parent = userData.sessions.find(s => s.id === activeParentSessionId);
+          if (parent) parent.isReturned = true;
+      }
       await saveUserData();
       closeModal('modal-save');
       showToast(`Session "${name}" sauvegardée !`);
@@ -1914,7 +2009,7 @@
       cont.innerHTML = sessions.map(s => {
         const date = new Date(s.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
         const ok = s.checked === s.total;
-        const phaseLabel = s.phase === 'depart' ? '📦 Retour' : '🎬 Départ';
+        const phaseLabel = s.phase === 'depart' ? '📦 Retour' : (s.isReturned ? '🎬 Départ (Clôturé)' : '🎬 Départ (En cours)');
         return `<div class="hist-session">
       <div class="hist-header" onclick="toggleHist(${s.id})">
         <div>
