@@ -12,11 +12,12 @@ import {
   Plus,
   ExternalLink,
   Trash2,
-  Save
+  Save,
+  Settings2
 } from 'lucide-vue-next'
 
 const props = defineProps<{ state: UserData & { _uid: string | null } }>()
-const emit = defineEmits<{ back: []; toast: [msg: string] }>()
+const emit = defineEmits<{ back: []; toast: [msg: string]; navigate: [page: any] }>()
 const { save } = useStore()
 
 // Step 1: choose parent departure
@@ -282,18 +283,19 @@ async function openSave() {
     </Teleport>
 
     <template v-if="!showLinkModal">
-      <!-- HEADER -->
-      <div class="page-header">
-        <button class="back-btn" @click="emit('back')"><ChevronLeft :size="20" /></button>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px">
-            <Package :size="22" stroke-width="2.5" style="color:var(--accent)" />
-            <h1>Retour</h1>
+      <header class="page-header">
+        <div class="ph-left" style="display:flex;align-items:center;gap:12px;flex:1">
+          <button class="btn-back" @click="emit('back')"><ChevronLeft :size="20" /></button>
+          <div style="display:flex;flex-direction:column">
+            <h1 class="page-title" style="font-size:13px;letter-spacing:0.05em">RETOUR MATÉRIEL</h1>
+            <div v-if="parentSession" style="font-size:10px; color:var(--accent); font-family:var(--font-mono)">↳ {{ parentSession.name }}</div>
           </div>
-          <div v-if="parentSession" style="font-size:11px; color:var(--accent);">↳ {{ parentSession.name }}</div>
         </div>
-        <div class="progress-pill">{{ checkedCount }}/{{ total }}</div>
-      </div>
+        <button class="btn-tech-link" style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface2);border-radius:6px;font-size:10px;font-weight:700;color:var(--text2)" @click="emit('navigate', 'gestion')">
+          <Settings2 :size="14" />
+          <span>MATOS</span>
+        </button>
+      </header>
 
       <div style="padding: 10px 20px 0">
         <div class="progress-bar"><div class="progress-fill" :style="{ width: pct + '%' }"></div></div>

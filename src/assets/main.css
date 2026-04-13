@@ -48,7 +48,52 @@ html, body, #app {
   transition: opacity 0.12s ease, transform 0.12s ease;
 }
 .page-enter-from { opacity: 0; transform: translateY(4px); }
-.page-leave-to { opacity: 0; transform: translateY(-4px); }
+.page-leave-to   { opacity: 0; transform: translateY(-4px); }
+
+/* ── NAVIGATION BAR (MOBILE) ── */
+.nav-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: clamp(64px, 10vh, 72px);
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 0.5px solid var(--border);
+  display: flex; align-items: stretch;
+  padding: 0 8px; padding-bottom: env(safe-area-inset-bottom);
+  z-index: 1000;
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px; border: none; background: none;
+  color: var(--text3); font-family: var(--font);
+  font-size: 10px; font-weight: 600;
+  transition: all 0.2s;
+}
+.nav-item.active { color: var(--accent); }
+.nav-item .ni-icon { opacity: 0.6; transition: opacity 0.2s; }
+.nav-item.active .ni-icon { opacity: 1; }
+
+@media (min-width: 900px) {
+  .nav-bar { display: none; }
+}
+
+/* ── COMPACT SESSION ROWS ── */
+.session-row {
+  display: grid; grid-template-columns: 1fr auto auto;
+  align-items: center; gap: 12px;
+  padding: 12px 14px; background: var(--surface);
+  border: 0.5px solid var(--border); border-radius: var(--radius-sm);
+  margin-bottom: 6px; cursor: pointer;
+  transition: transform 0.1s, border-color 0.2s;
+}
+.session-row:active { transform: scale(0.98); border-color: var(--border2); }
+.sr-name { font-size: 13px; font-weight: 700; color: var(--text); }
+.sr-date { font-size: 11px; font-family: var(--font-mono); color: var(--text3); }
+.sr-pct { 
+  font-size: 11px; font-weight: 800; font-family: var(--font-mono);
+  background: var(--surface2); padding: 2px 6px; border-radius: 4px;
+}
 
 /* ── BUTTONS ── */
 button { cursor: pointer; font-family: var(--font); border: none; background: transparent; color: inherit; }
@@ -128,36 +173,15 @@ select option { background: var(--surface2); }
   overflow-y: auto;
 }
 
-/* ── MOBILE NAV BAR ── */
-.nav-bar {
-  position: fixed;
-  bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 480px;
-  background: #16161f;
-  border-top: 0.5px solid var(--border2);
-  display: flex;
-  padding: 8px 0 env(safe-area-inset-bottom);
-  z-index: 100;
-}
-.nav-item {
-  flex: 1;
-  display: flex; flex-direction: column; align-items: center;
-  gap: 4px; padding: 6px;
-  color: var(--text3);
-  font-size: 10px; font-weight: 500;
-  border-radius: var(--radius-sm);
-  transition: color 0.15s;
-  cursor: pointer;
-}
-.nav-item .nav-icon { font-size: 20px; transition: transform 0.15s; }
-.nav-item.active { color: var(--accent); }
-.nav-item.active .nav-icon { transform: scale(1.1); }
-
 /* ═══════════════════════════════════════════
    DESKTOP LAYOUT ≥ 768px — Sidebar nav
    ═══════════════════════════════════════════ */
+@media (max-width: 899px) {
+  .sidebar { display: none; }
+  .app-desktop { padding: 16px 16px 90px 16px; }
+  .section-grid { grid-template-columns: 1fr; }
+}
+
 @media (min-width: 768px) {
   #app { display: flex; }
 

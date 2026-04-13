@@ -160,10 +160,27 @@ const navItems = [
             <div style="font-size:12px;color:var(--text2);margin-top:2px">{{ user?.email }}</div>
           </div>
           <div class="divider"></div>
+          <button class="btn btn-secondary btn-full" style="margin-bottom:8px" @click="navigate('gestion'); showProfile = false">
+            <Settings2 :size="16" style="margin-right:8px" /> Gérer le matériel
+          </button>
           <button class="btn btn-danger btn-full" @click="logout">Se déconnecter</button>
         </div>
       </div>
     </Teleport>
+
+    <!-- BOTTOM NAV (MOBILE ONLY) -->
+    <nav class="nav-bar">
+      <button
+        v-for="item in navItems.filter(i => i.key !== 'gestion')"
+        :key="item.key"
+        class="nav-item"
+        :class="{ active: currentPage === item.key }"
+        @click="navigate(item.key)"
+      >
+        <component :is="item.icon" :size="20" class="ni-icon" stroke-width="2.2" />
+        <span>{{ item.label }}</span>
+      </button>
+    </nav>
   </template>
 </template>
 

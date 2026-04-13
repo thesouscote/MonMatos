@@ -88,15 +88,15 @@ function pct(checked: number, total: number) {
     <div class="page-content">
       <!-- TECHNICAL DASHBOARD -->
       <div class="tech-dashboard">
-        <div class="dashboard-main">
-          <div class="gauge-container">
-            <svg viewBox="0 0 100 100" class="stock-gauge">
-              <circle class="gauge-bg" cx="50" cy="50" r="45" />
+        <div class="dashboard-grid">
+          <div class="tech-gauge-wrap">
+            <svg class="tech-gauge" viewBox="0 0 100 100">
+              <circle cx="50" cy="50" r="45" class="gauge-bg" />
               <circle
-                class="gauge-fill"
                 cx="50" cy="50" r="45"
-                :stroke-dasharray="`${availabilityPct * 2.827} 282.7`"
-                stroke-dashoffset="0"
+                class="gauge-fill"
+                :stroke-dasharray="282.7"
+                :stroke-dashoffset="282.7 - (availabilityPct * 2.827)"
                 stroke-linecap="round"
               />
             </svg>
@@ -108,33 +108,14 @@ function pct(checked: number, total: number) {
 
           <div class="tech-stats">
             <div class="t-stat">
-              <span class="t-stat-lbl">UNITÉS TOTALES</span>
+              <span class="t-stat-lbl">TOTAL</span>
               <span class="t-stat-val">{{ totalUnitCount }}</span>
             </div>
             <div class="t-stat" :class="{ 't-warn': inUseUnitCount > 0 }">
-              <span class="t-stat-lbl">EN TOURNAGE</span>
+              <span class="t-stat-lbl">OUT</span>
               <span class="t-stat-val">{{ inUseUnitCount }}</span>
             </div>
-            <div class="t-stat" :class="{ 't-danger': unavailableItems.length > 0 }">
-              <span class="t-stat-lbl">HORS SERVICE</span>
-              <span class="t-stat-val">{{ unavailableItems.length }}</span>
-            </div>
           </div>
-        </div>
-
-        <div class="dashboard-actions">
-          <button
-            class="action-btn primary"
-            :disabled="!stockAvailable"
-            @click="stockAvailable ? emit('navigate', 'checklist') : emit('toast', 'Aucun matériel disponible.')"
-          >
-            <Clapperboard :size="16" />
-            <span>NOUVEAU DÉPART</span>
-          </button>
-          <button class="action-btn secondary" @click="emit('navigate', 'retour')">
-            <Package :size="16" />
-            <span>RETOUR MATÉRIEL</span>
-          </button>
         </div>
       </div>
 
@@ -142,17 +123,14 @@ function pct(checked: number, total: number) {
       <div v-if="recentSessions.length > 0" class="section-top">
         <div class="section-title">ACTIVITÉ RÉCENTE</div>
         <div class="recent-list">
-          <div v-for="s in recentSessions" :key="s.id" class="session-mini-card" @click="emit('navigate', 'historique')">
-            <div class="smc-header">
-              <span class="smc-name">{{ s.name }}</span>
-              <span class="smc-date">{{ formatDate(s.date) }}</span>
-            </div>
-            <div class="smc-footer">
-              <div class="progress-bar-small">
-                <div class="progress-fill" :style="{ width: pct(s.checked, s.total) + '%' }"></div>
-              </div>
-              <span class="smc-pct">{{ pct(s.checked, s.total) }}%</span>
-            </div>
+          <div 
+            v-for="s in recentSessions" :key="s.id" 
+            class="session-row" 
+            @click="emit('navigate', 'historique')"
+          >
+            <span class="sr-name">{{ s.name }}</span>
+            <span class="sr-date">{{ formatDate(s.date) }}</span>
+            <span class="sr-pct">{{ pct(s.checked, s.total) }}%</span>
           </div>
         </div>
       </div>
@@ -187,7 +165,7 @@ function pct(checked: number, total: number) {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 32px 24px 0;
+  padding: 24px 24px 0;
 }
 .greeting {
   font-family: var(--font-mono);
@@ -222,119 +200,45 @@ function pct(checked: number, total: number) {
   display: flex; align-items: center; justify-content: center;
 }
 
-.tech-dashboard {
+.tech-.dashboard-card {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 0.5px solid var(--border2);
   border-radius: var(--radius);
-  padding: 24px;
-  margin-top: 32px;
-  margin-bottom: 32px;
+  padding: 16px;
+  box-shadow: var(--shadow);
 }
-.dashboard-main {
+.dashboard-grid {
   display: flex;
   align-items: center;
-  gap: 32px;
-  margin-bottom: 24px;
+  gap: 20px;
 }
-.gauge-container {
+.tech-gauge-wrap {
   position: relative;
   width: 90px;
   height: 90px;
-  flex-shrink: 0;
 }
-.stock-gauge {
-  transform: rotate(-90deg);
-  width: 100%;
-  height: 100%;
-}
-.gauge-bg {
-  fill: none;
-  stroke: var(--surface2);
-  stroke-width: 6;
-}
+.tech-gauge { width: 100%; height: 100%; transform: rotate(-90deg); }
+.gauge-bg { fill: none; stroke: var(--surface2); stroke-width: 8; }
 .gauge-fill {
-  fill: none;
-  stroke: var(--text);
-  stroke-width: 6;
-  transition: stroke-dasharray 1s cubic-bezier(0.4, 0, 0.2, 1);
+  fill: none; stroke: var(--accent); stroke-width: 8;
+  transition: stroke-dashoffset 0.8s ease;
 }
 .gauge-info {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-.gauge-val {
-  font-family: var(--font-mono);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1;
-}
-.gauge-lbl {
-  font-size: 8px;
-  font-weight: 700;
-  color: var(--text3);
-  letter-spacing: 0.05em;
-  margin-top: 2px;
-}
+.gauge-val { font-family: var(--font-mono); font-size: 16px; font-weight: 800; line-height: 1; }
+.gauge-lbl { font-size: 8px; font-weight: 700; color: var(--text3); margin-top: 2px; }
 
-.tech-stats {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.tech-stats { flex: 1; display: grid; gap: 8px; }
+.t-stat { 
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 12px; background: var(--bg2); border-radius: 6px;
 }
-.t-stat {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--border);
-}
-.t-stat-lbl {
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 600;
-  color: var(--text3);
-}
-.t-stat-val {
-  font-family: var(--font-mono);
-  font-size: 15px;
-  font-weight: 700;
-}
+.t-stat-lbl { font-size: 9px; font-weight: 700; color: var(--text3); }
+.t-stat-val { font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
 .t-warn .t-stat-val { color: var(--warn); }
 .t-danger .t-stat-val { color: var(--danger); }
-
-.dashboard-actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
-.action-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  padding: 14px;
-  border-radius: var(--radius-sm);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  transition: all 0.2s;
-}
-.action-btn.primary {
-  background: var(--text);
-  color: #000;
-}
-.action-btn.secondary {
-  background: var(--surface2);
-  border: 1px solid var(--border2);
-}
-.action-btn:disabled {
-  opacity: 0.2;
-}
 
 .session-mini-card {
   background: var(--surface);
