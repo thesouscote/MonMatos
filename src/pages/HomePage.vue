@@ -131,29 +131,12 @@ function pct(s: { checked: number; total: number }) {
         </button>
       </div>
 
-      <!-- RECENT SESSIONS -->
-      <div v-if="recentSessions.length">
-        <div class="section-title">Sessions récentes</div>
-        <div
-          v-for="s in recentSessions"
-          :key="s.id"
-          class="session-item"
-          @click="emit('navigate', 'historique')"
-        >
-          <div class="session-top">
-            <span class="session-name">{{ s.name }}</span>
-            <span class="badge" :class="pct(s) === 100 ? 'badge-ok' : 'badge-partial'">
-              {{ pct(s) === 100 ? 'Complet' : `${s.checked}/${s.total}` }}
-            </span>
-          </div>
-          <div class="session-meta">{{ formatDate(s.date) }} · {{ s.phase === 'depart' ? '📦 Retour' : s.isReturned ? '🎬 Clôturé' : '🎬 En cours' }}</div>
-          <div class="progress-bar"><div class="progress-fill" :style="{ width: pct(s) + '%' }"></div></div>
-        </div>
-      </div>
-      <div v-else class="empty-state">
+      <!-- EMPTY STATE (no sessions at all) -->
+      <div v-if="!recentSessions.length" class="empty-state">
         <span class="empty-icon">🎬</span>
-        <p>Aucune session encore.<br>Lance ta première checklist !</p>
+        <p>Aucune session encore.<br>Lance ton premier tournage !</p>
       </div>
+
     </div>
 
     <!-- NAV -->
