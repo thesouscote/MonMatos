@@ -755,8 +755,8 @@ async function deleteTemplate(id: number) {
 /* ── FAB ── */
 .fab {
   position: fixed;
-  bottom: calc(24px + env(safe-area-inset-bottom));
-  right: 24px;
+  bottom: calc(90px + env(safe-area-inset-bottom)); /* Surélevé pour éviter la barre de nav */
+  right: 20px;
   width: 56px; height: 56px;
   border-radius: 50%;
   background: var(--accent);

@@ -511,12 +511,13 @@ select option { background: var(--surface2); }
   background: var(--surface);
   border: 0.5px solid var(--border2);
   border-radius: 24px 24px 0 0;
-  padding: 28px 24px calc(28px + env(safe-area-inset-bottom));
+  padding: 28px 24px calc(56px + env(safe-area-inset-bottom)); /* Augmenté pour ne pas cacher les boutons */
   width: 100%;
   max-width: 480px;
-  max-height: 90dvh;
+  max-height: 85dvh; /* Réduit à 85dvh pour laisser de la place au clavier iOS */
   overflow-y: auto;
   animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  -webkit-overflow-scrolling: touch;
 }
 .modal-handle {
   width: 36px; height: 4px;
