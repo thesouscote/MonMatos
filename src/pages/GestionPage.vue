@@ -68,13 +68,9 @@ const showDeleteConfirm = ref(false)
 const itemToDelete = ref<number | null>(null)
 const editingItem = ref<Item | null>(null)
 
-const form = ref({
-  name: '',
-  cat: '',
-  qty: 1,
-  tags: '',
   status: 'ok' as StatusType,
   imageUrl: '',
+  description: '',
 })
 
 const isUploading = ref(false)
@@ -85,7 +81,7 @@ function removePreview() {
 
 function openAddModal() {
   editingItem.value = null
-  form.value = { name: '', cat: activeCat.value !== 'Tous' ? activeCat.value : '', qty: 1, tags: '', status: 'ok', imageUrl: '' }
+  form.value = { name: '', cat: activeCat.value !== 'Tous' ? activeCat.value : '', qty: 1, tags: '', status: 'ok', imageUrl: '', description: '' }
   showItemModal.value = true
 }
 
@@ -98,6 +94,7 @@ function openEditModal(item: Item) {
     tags: (item.tags || []).join(', '),
     status: item.status || 'ok',
     imageUrl: item.imageUrl || '',
+    description: item.description || '',
   }
   showItemModal.value = true
 }
@@ -123,6 +120,7 @@ async function saveItem() {
           ...props.state.items[idx],
           name, cat, qty: form.value.qty || 1, tags, status: form.value.status,
           imageUrl: finalUrl,
+          description: form.value.description.trim() || undefined,
         }
       }
       emit('toast', `${name} mis à jour !`)
@@ -130,6 +128,7 @@ async function saveItem() {
       props.state.items.push({
         id: itemId, name, cat, qty: form.value.qty || 1, tags, status: form.value.status,
         imageUrl: finalUrl,
+        description: form.value.description.trim() || undefined,
       })
       emit('toast', `${name} ajouté !`)
     }
@@ -321,6 +320,11 @@ function exportInventoryEmail() {
   const body = encodeURIComponent(lines.join('\n'));
   window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
 }
+
+function selectCategory(cat: string) {
+  activeCat.value = cat
+  tab.value = 'items'
+}
 </script>
 
 <template>
@@ -404,6 +408,7 @@ function exportInventoryEmail() {
 
             <div class="equip-body">
               <div class="equip-name">{{ item.name }}</div>
+              <div v-if="item.description" class="equip-desc">{{ item.description }}</div>
               <div class="equip-meta">
                 <span class="equip-cat">{{ item.cat }}</span>
                 <span class="equip-qty">× {{ item.qty }}</span>
@@ -455,7 +460,7 @@ function exportInventoryEmail() {
             <button class="btn btn-secondary btn-sm" @click="editingCat = null"><X :size="14" /></button>
           </div>
           <template v-else>
-            <div class="cat-manage-info">
+            <div class="cat-manage-info" @click="selectCategory(cat)">
               <span class="cat-manage-name">{{ cat }}</span>
               <span class="cat-manage-count">{{ (state.items || []).filter(i => i.cat === cat).length }} items</span>
             </div>
@@ -577,6 +582,11 @@ function exportInventoryEmail() {
                 <span class="ss-label">{{ info.label }}</span>
               </button>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Notes / Description</label>
+            <textarea v-model="form.description" placeholder="Ex: Numéro de série, accessoires inclus..." rows="3"></textarea>
           </div>
 
           <div class="modal-actions">
@@ -823,14 +833,19 @@ function exportInventoryEmail() {
   border-radius: var(--radius); padding: 14px 16px;
   margin-bottom: 8px; display: flex; align-items: center;
 }
-.cat-manage-info { flex: 1; }
-.cat-manage-name { font-size: 14px; font-weight: 600; }
+.cat-manage-info { flex: 1; cursor: pointer; }
+.cat-manage-info:hover .cat-manage-name { color: var(--accent); }
+.cat-manage-name { font-size: 14px; font-weight: 600; transition: color 0.2s; }
 .cat-manage-count { display: block; font-size: 11px; color: var(--text3); margin-top: 2px; }
 .cat-manage-btns { display: flex; gap: 6px; }
 .cat-edit-row { display: flex; gap: 8px; align-items: center; flex: 1; }
 .icon-btn { font-size: 16px; padding: 6px; border-radius: var(--radius-sm); transition: background 0.15s; background: transparent; }
 .icon-btn:hover { background: var(--surface2); }
 .icon-btn.danger:hover { background: rgba(239,68,68,0.1); }
+
+.equip-name { font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+.equip-desc { font-size: 11px; color: var(--text3); margin-bottom: 8px; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.equip-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 
 /* ── PHOTO UPLOAD ── */
 .photo-upload-zone {

@@ -237,6 +237,7 @@ function resetAll() {
               <div class="item-name-text" :style="item.availableQty === 0 ? 'opacity:0.45' : ''">
                 {{ item.name }}
               </div>
+              <div v-if="item.description" style="font-size:10px;color:var(--text3);margin-top:2px">{{ item.description }}</div>
               <!-- STOCK INDICATOR -->
               <div class="stock-line">
                 <span v-if="item.status === 'lent'" class="stock-badge stock-lent">📤 Prêté / Loué</span>

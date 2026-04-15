@@ -13,6 +13,7 @@ export interface Item {
   takenDepart?: number
   borrowedFrom?: string | null
   imageUrl?: string
+  description?: string
 }
 
 export interface SessionSnapshot {
@@ -24,6 +25,7 @@ export interface SessionSnapshot {
   checked: boolean
   borrowedFrom?: string | null
   imageUrl?: string
+  description?: string
 }
 
 export interface Session {

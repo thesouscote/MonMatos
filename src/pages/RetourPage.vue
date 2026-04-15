@@ -347,6 +347,7 @@ async function openSave() {
                 </div>
                 <div class="item-info">
                   <div class="item-name-text">{{ item.name }}</div>
+                  <div v-if="item.description" style="font-size:10px;color:var(--text3);margin-top:2px">{{ item.description }}</div>
                 </div>
                 <div v-if="hasPermission && getMaxQty(item) > 1" class="qty-selector" @click.stop>
                   <button class="qty-btn" @click="changeQty(item, -1)"><Minus :size="14" /></button>

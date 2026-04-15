@@ -342,6 +342,7 @@ function exportToPDF(s: any) {
             <img v-if="item.imageUrl" :src="item.imageUrl" class="hist-mini-thumb" loading="lazy" />
             <span class="hist-item-name">
               {{ item.name }}
+              <div v-if="item.description" style="font-size:10px;color:var(--text3);margin-top:2px">{{ item.description }}</div>
               <span v-if="item.borrowedFrom" style="color:var(--warn);font-size:11px"> – {{ item.borrowedFrom }}</span>
             </span>
             <div class="snap-qty" @click.stop>
