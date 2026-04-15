@@ -15,8 +15,10 @@ import {
   Save
 } from 'lucide-vue-next'
 
-const props = defineProps<{ state: UserData & { _uid: string | null } }>()
+const props = defineProps<{ state: UserData & { _uid: string | null; activeProfile?: any } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
+
+const hasPermission = computed(() => props.state.activeProfile?.role !== 'viewer')
 
 const { save } = useStore()
 
@@ -54,7 +56,7 @@ const noStockCount = computed(() => sessionItems.value.filter(i => i.availableQt
 const hasAnyStock  = computed(() => sessionItems.value.some(i => i.availableQty > 0))
 
 function toggleItem(item: Item & { availableQty: number }) {
-  if (item.availableQty === 0) return
+  if (!hasPermission.value || item.availableQty === 0) return
   const cur = item.takenArrive ?? 0
   const max = item.availableQty
   // Cycle: 0 → 1 → 2 → … → max → 0
@@ -65,6 +67,7 @@ function toggleItem(item: Item & { availableQty: number }) {
 
 // ✅ Check all items in a category at once
 function checkAllInCat(cat: string) {
+  if (!hasPermission.value) return
   const items = filteredByCat(cat)
   const allChecked = items.every(i => (i.takenArrive ?? 0) === i.availableQty && i.availableQty > 0)
   items.forEach(item => {
@@ -89,7 +92,7 @@ onMounted(() => window.addEventListener('keydown', onKeyDown))
 onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 
 function changeQty(item: Item & { availableQty: number }, delta: number) {
-  if (item.availableQty === 0) return
+  if (!hasPermission.value || item.availableQty === 0) return
   const cur = item.takenArrive ?? 0
   const next = Math.max(0, Math.min(item.availableQty, cur + delta))
   item.takenArrive = next
@@ -200,7 +203,7 @@ function resetAll() {
         <template v-if="filteredByCat(cat).length">
           <div class="cat-label">
             <span>{{ cat }}</span>
-            <button class="cat-check-all" @click="checkAllInCat(cat)">
+            <button v-if="hasPermission" class="cat-check-all" @click="checkAllInCat(cat)">
               {{ filteredByCat(cat).every(i => (i.takenArrive ?? 0) > 0 && i.availableQty > 0) ? 'Tout décocher' : 'Tout cocher' }}
             </button>
           </div>
@@ -249,13 +252,14 @@ function resetAll() {
             </div>
 
             <!-- QTY SELECTOR (only if stock available) -->
-            <div v-if="item.availableQty > 1" class="qty-selector">
-              <button class="qty-btn" @click.stop="changeQty(item, -1)"><Minus :size="14" /></button>
-              <span class="qty-val">{{ item.takenArrive ?? 0 }}/{{ item.availableQty }}</span>
-              <button class="qty-btn" @click.stop="changeQty(item, 1)"><Plus :size="14" /></button>
+            <div class="qty-control" @click.stop v-if="hasPermission && item.availableQty > 1">
+              <button class="qty-btn" @click="changeQty(item, -1)"><Minus :size="12" /></button>
+              <div class="qty-num">{{ item.takenArrive ?? 0 }}</div>
+              <button class="qty-btn" @click="changeQty(item, 1)"><Plus :size="12" /></button>
             </div>
-            <span v-else-if="item.availableQty === 1" class="item-qty-badge">×1</span>
-            <span v-else class="item-qty-badge" style="opacity:0.3">×0</span>
+            <div v-else class="qty-num" style="margin-left:auto; padding-right:12px; font-weight:700">
+              {{ item.takenArrive ?? 0 }}
+            </div>
             </div>
           </div>
         </template>
@@ -263,9 +267,16 @@ function resetAll() {
     </div>
 
     <!-- BOTTOM BAR -->
-    <div class="bottom-bar">
+    <div v-if="hasPermission" class="bottom-bar">
       <button class="btn btn-secondary btn-sm" @click="resetAll">Réinitialiser</button>
       <button class="btn btn-primary" :disabled="!hasAnyStock" @click="openSave">Sauvegarder</button>
+    </div>
+
+    <!-- READ-ONLY WARNING -->
+    <div v-else class="bottom-bar" style="background:var(--surface2);">
+      <div style="font-size:12px;color:var(--text3);font-weight:600;display:flex;align-items:center;gap:8px">
+        <AlertCircle :size="16" /> Mode Lecteur
+      </div>
     </div>
 
     <!-- SAVE MODAL -->

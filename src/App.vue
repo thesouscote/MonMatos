@@ -8,7 +8,8 @@ import {
   Clapperboard,
   Package,
   ClipboardList,
-  Settings2
+  Settings2,
+  Users
 } from 'lucide-vue-next'
 
 import AuthPage from './pages/AuthPage.vue'
@@ -17,11 +18,14 @@ import ChecklistPage from './pages/ChecklistPage.vue'
 import RetourPage from './pages/RetourPage.vue'
 import HistoriquePage from './pages/HistoriquePage.vue'
 import GestionPage from './pages/GestionPage.vue'
+import ProfilesPage from './pages/ProfilesPage.vue'
+import TeamPage from './pages/TeamPage.vue'
 import ToastMsg from './components/ToastMsg.vue'
+import type { Profile } from './types'
 
 const { state, loadFromFirebase, resetState } = useStore()
 
-type Page = 'home' | 'checklist' | 'retour' | 'historique' | 'gestion'
+type Page = 'home' | 'checklist' | 'retour' | 'historique' | 'gestion' | 'team'
 
 const loading = ref(true)
 const isLoggedIn = ref(false)
@@ -57,13 +61,27 @@ async function logout() {
   isLoggedIn.value = false
 }
 
+function changeProfile() {
+  state.activeProfile = null
+  showProfile.value = false
+}
+
+function onProfileSelected(profile: Profile) {
+  showToast(`Bienvenue ${profile.name}`)
+}
+
 const navItems = [
   { key: 'home',       icon: House,         label: 'Accueil' },
   { key: 'checklist',  icon: Clapperboard,  label: 'Départ' },
   { key: 'retour',     icon: Package,       label: 'Retour' },
   { key: 'historique', icon: ClipboardList, label: 'Historique' },
   { key: 'gestion',    icon: Settings2,     label: 'Matériel' },
+  { key: 'team',       icon: Users,        label: 'Ekipe', adminOnly: true },
 ] as const
+
+const filteredNavItems = computed(() => 
+  navItems.filter(item => !('adminOnly' in item) || state.activeProfile?.role === 'admin')
+)
 </script>
 
 <template>
@@ -75,6 +93,13 @@ const navItems = [
   <!-- AUTH -->
   <AuthPage v-else-if="!isLoggedIn" @toast="showToast" />
 
+  <!-- PROFILES (Netflix style) -->
+  <ProfilesPage 
+    v-else-if="!state.activeProfile" 
+    :profiles="state.profiles" 
+    @selected="onProfileSelected" 
+  />
+
   <!-- APP -->
   <template v-else>
     <!-- SIDEBAR (desktop only) -->
@@ -85,7 +110,7 @@ const navItems = [
       </div>
 
       <button
-        v-for="item in navItems"
+        v-for="item in filteredNavItems"
         :key="item.key"
         class="sidebar-item"
         :class="{ active: currentPage === item.key }"
@@ -99,12 +124,16 @@ const navItems = [
       <div class="sidebar-spacer"></div>
 
       <button class="sidebar-user" @click="showProfile = true">
-        <div class="sidebar-avatar">{{ (user?.displayName || 'R')[0].toUpperCase() }}</div>
+        <div class="sidebar-avatar" :style="{ backgroundColor: state.activeProfile?.avatarColor || 'var(--accent)' }">
+          {{ state.activeProfile?.name?.[0].toUpperCase() }}
+        </div>
         <div style="min-width:0">
           <div style="font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
-            {{ user?.displayName || 'Réalisateur' }}
+            {{ state.activeProfile?.name }}
           </div>
-          <div style="font-size:10px;color:var(--text3)">Paramètres</div>
+          <div style="font-size:10px;color:var(--text3)">
+            {{ state.activeProfile?.role === 'admin' ? 'Admin' : (state.activeProfile?.role === 'editor' ? 'Éditeur' : 'Lecteur') }}
+          </div>
         </div>
       </button>
     </aside>
@@ -143,6 +172,12 @@ const navItems = [
             @back="navigate('home')"
             @toast="showToast"
           />
+          <TeamPage
+            v-else-if="currentPage === 'team'"
+            :state="state"
+            @back="navigate('home')"
+            @toast="showToast"
+          />
         </div>
       </Transition>
     </div>
@@ -155,23 +190,28 @@ const navItems = [
         <div class="modal-sheet">
           <div class="modal-handle"></div>
           <div style="text-align:center;margin-bottom:16px">
-            <div class="profile-avatar-lg">{{ (user?.displayName || 'R')[0].toUpperCase() }}</div>
-            <div style="font-size:17px;font-weight:700;margin-top:8px">{{ user?.displayName }}</div>
+            <div class="profile-avatar-lg" :style="{ backgroundColor: state.activeProfile?.avatarColor || 'var(--accent)' }">
+              {{ state.activeProfile?.name?.[0].toUpperCase() }}
+            </div>
+            <div style="font-size:17px;font-weight:700;margin-top:8px">{{ state.activeProfile?.name }}</div>
             <div style="font-size:12px;color:var(--text2);margin-top:2px">{{ user?.email }}</div>
           </div>
           <div class="divider"></div>
-          <button class="btn btn-secondary btn-full" style="margin-bottom:8px" @click="navigate('gestion'); showProfile = false">
+          <button v-if="state.activeProfile?.role !== 'viewer'" class="btn btn-secondary btn-full" style="margin-bottom:8px" @click="navigate('gestion'); showProfile = false">
             <Settings2 :size="16" style="margin-right:8px" /> Gérer le matériel
           </button>
-          <button class="btn btn-danger btn-full" @click="logout">Se déconnecter</button>
+          <button class="btn btn-secondary btn-full" style="margin-bottom:8px" @click="changeProfile">
+            Changer de profil
+          </button>
+          <button class="btn btn-danger btn-full" @click="logout">Se déconnecter ({{ user?.email }})</button>
         </div>
       </div>
     </Teleport>
 
     <!-- BOTTOM NAV (MOBILE ONLY) -->
-    <nav v-show="['home', 'historique', 'gestion'].includes(currentPage)" class="nav-bar">
+    <nav v-show="['home', 'historique', 'gestion', 'team'].includes(currentPage)" class="nav-bar">
       <button
-        v-for="item in navItems"
+        v-for="item in filteredNavItems"
         :key="item.key"
         class="nav-item"
         :class="{ active: currentPage === item.key }"

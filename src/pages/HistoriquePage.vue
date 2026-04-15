@@ -32,6 +32,7 @@ const props = defineProps<{ state: UserData & { _uid: string | null } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
 const { save } = useStore()
 const { sendSessionToAccount } = useTransfers()
+const isEditor = computed(() => props.state.activeProfile?.role === 'admin' || props.state.activeProfile?.role === 'editor')
 
 const openSessions = ref(new Set<number>())
 const search = ref('')
@@ -331,7 +332,7 @@ function exportToPDF(s: any) {
               <button class="cat-check-all" @click="exportToPDF(s)"><FileDown :size="12" style="margin-right:4px" /> PDF</button>
               <button class="cat-check-all" @click="copySummary(s)"><Copy :size="12" style="margin-right:4px" /> Copier</button>
               <button class="cat-check-all" @click="shareEmail(s)"><Mail :size="12" style="margin-right:4px" /> E-mail</button>
-              <button class="cat-check-all" @click="openTransferModal(s.id)"><Send :size="12" style="margin-right:4px" /> Compte</button>
+              <button v-if="isEditor" class="cat-check-all" @click="openTransferModal(s.id)"><Send :size="12" style="margin-right:4px" /> Compte</button>
             </div>
           </div>
 
@@ -344,29 +345,31 @@ function exportToPDF(s: any) {
               <span v-if="item.borrowedFrom" style="color:var(--warn);font-size:11px"> – {{ item.borrowedFrom }}</span>
             </span>
             <div class="snap-qty" @click.stop>
-              <button class="snap-btn" @click="updateSnapQty(s, idx, -1)"><Minus :size="10" /></button>
+              <button v-if="isEditor" class="snap-btn" @click="updateSnapQty(s, idx, -1)"><Minus :size="10" /></button>
               <span>{{ item.taken }}/{{ item.qty }}</span>
-              <button class="snap-btn" @click="updateSnapQty(s, idx, 1)"><Plus :size="10" /></button>
-              <button class="snap-del" @click="removeSnapItem(s, idx)"><Trash2 :size="14" /></button>
+              <button v-if="isEditor" class="snap-btn" @click="updateSnapQty(s, idx, 1)"><Plus :size="10" /></button>
+              <button v-if="isEditor" class="snap-del" @click="removeSnapItem(s, idx)"><Trash2 :size="14" /></button>
             </div>
           </div>
 
           <div class="divider"></div>
 
           <!-- ADD MATOS button -->
-          <button class="btn-add-matos" @click="openAddModal(s.id)">
+          <button v-if="isEditor" class="btn-add-matos" @click="openAddModal(s.id)">
             <Plus :size="14" style="margin-right:6px" /> Ajouter du matos à cette session
           </button>
 
           <!-- DELETE -->
-          <div v-if="confirmDeleteId === s.id" class="delete-confirm">
-            <span>Supprimer définitivement ?</span>
-            <button class="btn btn-danger btn-sm" @click="deleteSession(s.id)">Oui</button>
-            <button class="btn btn-secondary btn-sm" @click="confirmDeleteId = null">Annuler</button>
-          </div>
-          <button v-else class="btn btn-danger btn-sm btn-full" style="margin-top:6px" @click="confirmDeleteId = s.id">
-            <Trash2 :size="16" style="margin-right:8px" /> Supprimer cette session
-          </button>
+          <template v-if="isEditor">
+            <div v-if="confirmDeleteId === s.id" class="delete-confirm">
+              <span>Supprimer définitivement ?</span>
+              <button class="btn btn-danger btn-sm" @click="deleteSession(s.id)">Oui</button>
+              <button class="btn btn-secondary btn-sm" @click="confirmDeleteId = null">Annuler</button>
+            </div>
+            <button v-else class="btn btn-danger btn-sm btn-full" style="margin-top:6px" @click="confirmDeleteId = s.id">
+              <Trash2 :size="16" style="margin-right:8px" /> Supprimer cette session
+            </button>
+          </template>
         </div>
       </div>
     </div>

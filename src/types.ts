@@ -54,11 +54,21 @@ export interface BorrowedItem {
   takenDepart?: number
 }
 
+export interface Profile {
+  id: string
+  name: string
+  avatarColor: string
+  role: 'admin' | 'editor' | 'viewer'
+  isBlocked?: boolean
+  pin?: string // optionnel, pour verrouiller
+}
+
 export interface UserData {
   categories: string[]
   items: Item[]
   sessions: Session[]
   templates: Template[]
+  profiles: Profile[]
 }
 
 export type StatusType = Item['status']

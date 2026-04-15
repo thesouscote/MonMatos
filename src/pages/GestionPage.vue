@@ -20,10 +20,13 @@ import {
   Mail,
   Send
 } from 'lucide-vue-next'
-import type { UserData, Item, StatusType, Template } from '../types'
+import type { UserData, Item, StatusType, Template, Profile } from '../types'
 import { STATUS_MAP } from '../types'
 
-const props = defineProps<{ state: UserData & { _uid: string | null } }>()
+const props = defineProps<{ state: UserData & { _uid: string | null; activeProfile?: Profile | null } }>()
+const isAdmin = computed(() => props.state.activeProfile?.role === 'admin')
+const isViewer = computed(() => props.state.activeProfile?.role === 'viewer')
+const isEditor = computed(() => props.state.activeProfile?.role === 'editor' || isAdmin.value)
 const emit = defineEmits<{ back: []; toast: [msg: string] }>()
 const { save } = useStore()
 const { sendSessionToAccount } = useTransfers()
@@ -337,7 +340,7 @@ function exportInventoryEmail() {
         <Package :size="14" /> Items <span class="tab-count">{{ state.items?.length ?? 0 }}</span>
       </button>
       <button :class="{ active: tab === 'categories' }" @click="tab = 'categories'">
-        <Tag :size="14" /> Catégories
+        <Tag :size="14" /> Catégorie
       </button>
       <button :class="{ active: tab === 'templates' }" @click="tab = 'templates'">
         <ClipboardList :size="14" /> Templates
@@ -394,12 +397,12 @@ function exportInventoryEmail() {
             <div class="equip-status-bar" :class="`bg-${item.status}`"></div>
 
             <!-- MAIN CONTENT -->
-            <div class="equip-thumb" @click="openEditModal(item)">
+            <div class="equip-thumb">
               <img v-if="item.imageUrl" :src="item.imageUrl" alt="" loading="lazy" />
               <Camera v-else :size="20" stroke-width="1.5" />
             </div>
 
-            <div class="equip-body" @click="openEditModal(item)">
+            <div class="equip-body">
               <div class="equip-name">{{ item.name }}</div>
               <div class="equip-meta">
                 <span class="equip-cat">{{ item.cat }}</span>
@@ -412,9 +415,9 @@ function exportInventoryEmail() {
                   v-for="(info, key) in STATUS_MAP"
                   :key="key"
                   class="equip-status-btn"
-                   :class="{ active: item.status === key, [`s-${key}`]: true }"
+                   :class="{ active: item.status === key, [`s-${key}`]: true, disabled: !isEditor }"
                   :title="info.label"
-                  @click="setStatus(item, key as StatusType)"
+                  @click="isEditor && setStatus(item, key as StatusType)"
                 >
                   <component :is="getStatusIcon(info.icon)" :size="12" stroke-width="2.5" />
                 </button>
@@ -422,7 +425,7 @@ function exportInventoryEmail() {
             </div>
 
             <!-- EDIT BTN -->
-            <div class="equip-actions">
+            <div class="equip-actions" v-if="isEditor">
               <button class="equip-edit-btn" title="Transférer" @click="openTransferItem(item)"><Send :size="16" /></button>
               <button class="equip-edit-btn" style="border-top:0.5px solid var(--border)" title="Modifier" @click="openEditModal(item)"><Pencil :size="16" /></button>
               <button class="equip-del-btn" style="border-top:0.5px solid var(--border)" title="Supprimer" @click="askDeleteItem(item.id)"><Trash2 :size="16" /></button>
@@ -435,12 +438,10 @@ function exportInventoryEmail() {
       <!-- ═══════════ CATEGORIES ═══════════ -->
       <template v-else-if="tab === 'categories'">
         <!-- ADD -->
-        <div class="card" style="margin-bottom:16px">
-          <div class="section-title">Nouvelle catégorie</div>
-          <div style="display:flex; gap:8px;">
-            <input v-model="newCat" placeholder="Ex: Drone, Stabilisateur…" @keyup.enter="addCategory" />
-            <button class="btn btn-primary" style="flex-shrink:0; padding:0 18px" @click="addCategory">+</button>
-          </div>
+        <div class="cat-add-row" v-if="isEditor">
+          <Tag :size="18" style="color:var(--text3)" />
+          <input v-model="newCat" placeholder="Nouvelle catégorie..." @keyup.enter="addCategory" />
+          <button @click="addCategory" :disabled="!newCat.trim()"><Plus :size="20" /></button>
         </div>
 
         <div v-if="!state.categories.length" class="empty-state">
@@ -458,7 +459,7 @@ function exportInventoryEmail() {
               <span class="cat-manage-name">{{ cat }}</span>
               <span class="cat-manage-count">{{ (state.items || []).filter(i => i.cat === cat).length }} items</span>
             </div>
-            <div class="cat-manage-btns">
+            <div class="cat-manage-btns" v-if="isEditor">
               <button class="icon-btn" title="Renommer" @click="startEditCat(cat)"><Pencil :size="16" /></button>
               <button class="icon-btn danger" title="Supprimer" @click="deleteCategory(cat)"><Trash2 :size="16" /></button>
             </div>
@@ -507,7 +508,7 @@ function exportInventoryEmail() {
           <div class="selected-count" v-if="selectedIds.size > 0">
             {{ selectedIds.size }} équipement{{ selectedIds.size > 1 ? 's' : '' }} sélectionné{{ selectedIds.size > 1 ? 's' : '' }}
           </div>
-          <button class="btn btn-primary btn-full" style="margin-top:14px" @click="saveTemplate">
+          <button class="btn btn-primary btn-full" style="margin-top:14px" v-if="isEditor" @click="saveTemplate">
             💾 Sauvegarder le template
           </button>
         </div>
@@ -515,7 +516,7 @@ function exportInventoryEmail() {
     </div>
 
     <!-- FAB: ADD ITEM (only on items tab) -->
-    <button v-if="tab === 'items'" class="fab" @click="openAddModal"><Plus :size="32" /></button>
+    <button v-if="tab === 'items' && isEditor" class="fab" @click="openAddModal"><Plus :size="32" /></button>
 
     <!-- ═══ ADD / EDIT MODAL ═══ -->
     <Teleport to="body">

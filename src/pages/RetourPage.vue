@@ -16,9 +16,11 @@ import {
   Settings2
 } from 'lucide-vue-next'
 
-const props = defineProps<{ state: UserData & { _uid: string | null } }>()
+const props = defineProps<{ state: UserData & { _uid: string | null; activeProfile?: any } }>()
 const emit = defineEmits<{ back: []; toast: [msg: string]; navigate: [page: any] }>()
 const { save } = useStore()
+
+const hasPermission = computed(() => props.state.activeProfile?.role !== 'viewer')
 
 // Step 1: choose parent departure
 const pendingDepartures = computed(() =>
@@ -100,6 +102,7 @@ function getMaxQty(item: Item): number {
 }
 
 function toggleItem(item: Item) {
+  if (!hasPermission.value) return
   const max = getMaxQty(item)
   const cur = item.takenDepart ?? 0
   // Cycle: 0 → 1 → 2 → … → max → 0
@@ -109,6 +112,7 @@ function toggleItem(item: Item) {
 }
 
 function changeQty(item: Item, delta: number) {
+  if (!hasPermission.value) return
   const max = getMaxQty(item)
   const next = Math.max(0, Math.min(max, (item.takenDepart ?? 0) + delta))
   item.takenDepart = next
@@ -170,7 +174,7 @@ const borrowFrom = ref('')
 const borrowQty = ref(1)
 
 function addBorrowed() {
-  if (!borrowName.value.trim()) return
+  if (!hasPermission.value || !borrowName.value.trim()) return
   borrowedItems.value.push({
     _bid: Date.now(),
     name: borrowName.value.trim(),
@@ -184,6 +188,7 @@ function addBorrowed() {
 }
 
 function removeBorrowed(bid: number) {
+  if (!hasPermission.value) return
   borrowedItems.value = borrowedItems.value.filter(b => b._bid !== bid)
 }
 
@@ -343,11 +348,12 @@ async function openSave() {
                 <div class="item-info">
                   <div class="item-name-text">{{ item.name }}</div>
                 </div>
-                <div v-if="getMaxQty(item) > 1" class="qty-selector" @click.stop>
+                <div v-if="hasPermission && getMaxQty(item) > 1" class="qty-selector" @click.stop>
                   <button class="qty-btn" @click="changeQty(item, -1)"><Minus :size="14" /></button>
                   <span class="qty-val">{{ item.takenDepart ?? 0 }}/{{ getMaxQty(item) }}</span>
                   <button class="qty-btn" @click="changeQty(item, 1)"><Plus :size="14" /></button>
                 </div>
+                <span v-else-if="getMaxQty(item) > 1" class="item-qty-badge">{{ item.takenDepart ?? 0 }}/{{ getMaxQty(item) }}</span>
                 <span v-else class="item-qty-badge">×1</span>
               </div>
             </div>
@@ -356,7 +362,7 @@ async function openSave() {
 
         <!-- ACTIONS: AJOUTER MATOS + EMPRUNT -->
         <div class="divider"></div>
-        <div style="display:flex; gap:8px; margin-bottom:10px">
+        <div v-if="hasPermission" style="display:flex; gap:8px; margin-bottom:10px">
           <button class="btn-add-matos" style="flex:1" @click="openAddModal">
             <Package :size="14" style="display:inline-block;vertical-align:middle;margin-right:6px" /> Ajouter du matos
           </button>
@@ -387,7 +393,7 @@ async function openSave() {
       </div>
 
       <!-- BOTTOM BAR -->
-      <div class="bottom-bar">
+      <div v-if="hasPermission" class="bottom-bar">
         <button class="btn btn-secondary btn-sm" @click="sessionItems.forEach(i => { i.checkedDepart = false; i.takenDepart = 0 })">
           Réinit.
         </button>
@@ -399,6 +405,11 @@ async function openSave() {
         >
           {{ allDone ? 'Sauvegarder' : `⚠️ ${totalQty - takenQty} manquant${(totalQty - takenQty) > 1 ? 's' : ''}` }}
         </button>
+      </div>
+      <div v-else class="bottom-bar" style="background:var(--surface2);">
+        <div style="font-size:12px;color:var(--text3);font-weight:600;display:flex;align-items:center;gap:8px">
+          Mode Lecteur
+        </div>
       </div>
 
 

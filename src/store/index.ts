@@ -1,7 +1,7 @@
 import { reactive } from 'vue'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import type { UserData, Item } from '../types'
+import type { UserData, Item, Profile } from '../types'
 
 const DEFAULT_DATA: UserData = {
   categories: ['Caméra', 'Audio', 'Lumière', 'Support', 'Stockage', 'Alimentation', 'Divers'],
@@ -28,20 +28,24 @@ const DEFAULT_DATA: UserData = {
   ],
   sessions: [],
   templates: [],
+  profiles: [],
 }
 
-const state = reactive<UserData & { _uid: string | null }>({
+const state = reactive<UserData & { _uid: string | null; activeProfile: Profile | null }>({
   ...JSON.parse(JSON.stringify(DEFAULT_DATA)),
   _uid: null,
+  activeProfile: null,
 })
 
 function resetState() {
   const fresh = JSON.parse(JSON.stringify(DEFAULT_DATA))
   state._uid = null
+  state.activeProfile = null
   state.categories = fresh.categories
   state.items = fresh.items
   state.sessions = []
   state.templates = []
+  state.profiles = []
 }
 
 export function useStore() {
@@ -56,6 +60,23 @@ export function useStore() {
       state.categories = data.categories || []
       state.sessions = data.sessions || []
       state.templates = data.templates || []
+      state.profiles = data.profiles || []
+      
+      // Auto-migration: if no profiles exist, create a default Admin one
+      if (state.profiles.length === 0) {
+        state.profiles = [
+          {
+            id: 'admin-' + Date.now(),
+            name: 'Admin',
+            avatarColor: 'var(--accent)',
+            role: 'admin',
+            isBlocked: false,
+          }
+        ]
+        // Optionally save it immediately to avoid repeating this
+        save()
+      }
+
       // Migrate items: ensure status + tags exist
       state.items = (data.items || []).map((i: Item) => ({
         ...i,
@@ -72,11 +93,24 @@ export function useStore() {
       state.items = fresh.items
       state.sessions = []
       state.templates = []
+      
+      // Default admin profile
+      state.profiles = [
+        {
+          id: 'admin-' + Date.now(),
+          name: 'Admin',
+          avatarColor: 'var(--accent)',
+          role: 'admin',
+          isBlocked: false,
+        }
+      ]
+
       await setDoc(ref, {
         categories: state.categories,
         items: state.items,
         sessions: [],
         templates: [],
+        profiles: state.profiles,
       })
     }
   }
@@ -89,6 +123,7 @@ export function useStore() {
       items: state.items,
       sessions: state.sessions,
       templates: state.templates,
+      profiles: state.profiles,
     }))
     try {
       await setDoc(ref, payload)
