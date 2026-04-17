@@ -136,6 +136,7 @@ const filteredNavItems = computed(() =>
           </div>
         </div>
       </button>
+      <div class="sidebar-version">v2.1.3</div>
     </aside>
 
     <!-- MAIN CONTENT -->
@@ -239,5 +240,12 @@ const filteredNavItems = computed(() =>
   color: var(--text); font-size: 22px; font-weight: 800;
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto;
+}
+.sidebar-version {
+  padding: 10px 20px;
+  font-size: 10px;
+  color: var(--text3);
+  font-family: var(--font-mono);
+  opacity: 0.5;
 }
 </style>
