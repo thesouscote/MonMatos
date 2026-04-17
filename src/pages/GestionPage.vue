@@ -67,7 +67,11 @@ const showItemModal = ref(false)
 const showDeleteConfirm = ref(false)
 const itemToDelete = ref<number | null>(null)
 const editingItem = ref<Item | null>(null)
-
+const form = ref({
+  name: '',
+  cat: '',
+  qty: 1,
+  tags: '',
   status: 'ok' as StatusType,
   imageUrl: '',
   description: '',
